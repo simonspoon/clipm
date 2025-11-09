@@ -1,0 +1,41 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - unconvert
+    - unparam
+    - gocyclo
+    - gocritic
+    - revive
+    - gosec
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+  revive:
+    rules:
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
