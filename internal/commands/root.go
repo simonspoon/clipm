@@ -32,4 +32,7 @@ func init() {
 	rootCmd.AddCommand(doneCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(editCmd)
+	rootCmd.AddCommand(parentCmd)
+	rootCmd.AddCommand(unparentCmd)
+	rootCmd.AddCommand(treeCmd)
 }

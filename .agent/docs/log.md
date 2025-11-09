@@ -35,3 +35,15 @@
 - Changed: internal/commands/status_test.go, internal/commands/done_test.go, internal/commands/delete_test.go, internal/commands/edit_test.go, internal/commands/add_test.go (timing fix)
 - Outcome: success
 - Notes: 21 new tests for Phase 2 commands. Fixed timing issue in add_test.go. Total: 49 tests passing (6 storage + 43 commands). All commands fully tested including edge cases.
+
+## [2025-11-08] Phase 3 Commands (Hierarchy Management)
+- Task: Implement parent, unparent, and tree commands
+- Changed: internal/commands/parent.go, internal/commands/unparent.go, internal/commands/tree.go, internal/commands/root.go
+- Outcome: success
+- Notes: All Phase 3 commands implemented. Parent command includes circular dependency detection via ancestor traversal. Tree command displays ASCII hierarchical view with color-coded status and priority. Unparent makes tasks top-level. All commands work with active and archived tasks.
+
+## [2025-11-08] Phase 3 Command Tests
+- Task: Write comprehensive tests for parent, unparent, and tree commands
+- Changed: internal/commands/parent_test.go, internal/commands/unparent_test.go, internal/commands/tree_test.go
+- Outcome: success
+- Notes: 21 new tests for Phase 3 commands (9 parent, 5 unparent, 7 tree). Total: 70 tests passing (6 storage + 64 commands). Tested circular dependency prevention, complex hierarchies, filtering, and edge cases. Phase 3 complete.

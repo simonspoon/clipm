@@ -2,12 +2,12 @@
 
 ## Current Session
 Goal: Implement clipm v1.0 - CLI task manager in Go
-Status: active - Phase 2 Complete with Tests ✅
+Status: active - Phase 3 Complete with Tests ✅
 Started: 2025-11-08
 
 ## Context
-Active Files: All Phase 1 & 2 implementation complete
-Active Components: Phase 1 (Core CRUD) + Phase 2 (Status Management) - FULLY TESTED
+Active Files: All Phase 1, 2 & 3 implementation complete
+Active Components: Phase 1 (Core CRUD) + Phase 2 (Status Management) + Phase 3 (Hierarchy) - FULLY TESTED
 Dependencies: All installed (cobra v1.10.1, yaml.v3 v3.0.1, color v1.18.0, testify v1.11.1)
 
 ## Progress
@@ -36,16 +36,25 @@ Completed:
   - done_test.go: 4 test cases covering archiving and edge cases
   - delete_test.go: 6 test cases covering deletion, children, orphaning
   - edit_test.go: 5 test cases covering editor paths and validation
+- ✅ Phase 3 commands implemented:
+  - `clipm parent <id> <parent-id>` - Set parent relationship with circular dependency prevention
+  - `clipm unparent <id>` - Remove parent relationship
+  - `clipm tree` - Display hierarchical tree view with ASCII formatting
+- ✅ Phase 3 command test suite (21 tests, all passing)
+  - parent_test.go: 9 test cases covering parent setting, circular deps, validation
+  - unparent_test.go: 5 test cases covering unparenting and edge cases
+  - tree_test.go: 7 test cases covering tree display, hierarchy, filtering
 
 Current:
-- Phase 2 complete and fully tested
+- Phase 3 complete and fully tested
 
 Next:
-- Implement Phase 3 commands (parent, unparent, tree view)
-- Write tests for Phase 3 commands
+- Ready for v1.0 release
+- Consider README documentation
+- Consider CI/CD setup
 
 ## Key Decisions
-- Using incremental phases approach (Phase 1: CRUD ✅, Phase 2: Status ✅, Phase 3: Hierarchy)
+- Using incremental phases approach (Phase 1: CRUD ✅, Phase 2: Status ✅, Phase 3: Hierarchy ✅)
 - Writing tests alongside implementation ✅
 - Simple module name "clipm" (can change to full path later)
 - Using internal/ packages to prevent external imports
@@ -54,15 +63,19 @@ Next:
 - Test helper function uses counter for predictable IDs
 - Delete command supports recursive deletion and orphaning children
 - Edit command validates YAML after editing and updates timestamp
+- Parent command prevents circular dependencies via ancestor traversal
+- Tree command displays hierarchical structure with ASCII art
 
 ## Notes
-- Phase 1 & 2 are fully implemented and tested
+- All 3 phases fully implemented and tested
 - Binary builds successfully and all commands work
-- 49 total tests passing (6 storage + 43 commands)
+- 70 total tests passing (6 storage + 64 commands)
 - All task files match PRD format specification
 - Color-coded terminal output working
 - Delete command handles nested hierarchies recursively
 - Edit command falls back through $EDITOR → vim → vi → nano
+- Tree command supports filtering archived tasks with -a flag
+- Parent/unparent commands work with both active and archived tasks
 
 ## Related Documentation
 - prd.md - Full product requirements
