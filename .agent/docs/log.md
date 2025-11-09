@@ -23,3 +23,15 @@
 - Changed: internal/commands/add_test.go, internal/commands/list_test.go, internal/commands/show_test.go
 - Outcome: success
 - Notes: 22 tests total, all passing. Coverage: commands 65.5%, storage 67.9%. Tests cover happy path, error cases, filtering, and edge cases.
+
+## [2025-11-08] Phase 2 Commands (Status Management)
+- Task: Implement status, done, delete, and edit commands
+- Changed: internal/commands/status.go, internal/commands/done.go, internal/commands/delete.go, internal/commands/edit.go, internal/commands/root.go, internal/models/index.go
+- Outcome: success
+- Notes: All Phase 2 commands implemented with full functionality. Added GetChildren method to Index model for delete command. Delete supports recursive deletion and orphaning. Edit validates YAML and falls back through editor options.
+
+## [2025-11-08] Phase 2 Command Tests
+- Task: Write comprehensive tests for status, done, delete, and edit commands
+- Changed: internal/commands/status_test.go, internal/commands/done_test.go, internal/commands/delete_test.go, internal/commands/edit_test.go, internal/commands/add_test.go (timing fix)
+- Outcome: success
+- Notes: 21 new tests for Phase 2 commands. Fixed timing issue in add_test.go. Total: 49 tests passing (6 storage + 43 commands). All commands fully tested including edge cases.

@@ -52,3 +52,14 @@ func (idx *Index) GetTask(id int64) (*IndexEntry, bool) {
 	entry, exists := idx.Tasks[id]
 	return entry, exists
 }
+
+// GetChildren returns all task IDs that have the given task as their parent
+func (idx *Index) GetChildren(parentID int64) []int64 {
+	var children []int64
+	for _, entry := range idx.Tasks {
+		if entry.Parent != nil && *entry.Parent == parentID {
+			children = append(children, entry.ID)
+		}
+	}
+	return children
+}

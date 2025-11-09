@@ -3,6 +3,7 @@ package commands
 import (
 	"os"
 	"testing"
+	"time"
 
 	"clipm/internal/models"
 	"clipm/internal/storage"
@@ -130,7 +131,8 @@ func TestAddCommandWithParent(t *testing.T) {
 		parentID = id
 	}
 
-	// Create child task
+	// Create child task (with slight delay to ensure unique ID)
+	time.Sleep(2 * time.Millisecond)
 	addParent = parentID
 	err = runAdd(nil, []string{"Child Task"})
 	require.NoError(t, err)
