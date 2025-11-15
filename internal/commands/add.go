@@ -2,6 +2,8 @@ package commands
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -16,6 +18,7 @@ var (
 	addPriority    string
 	addTags        string
 	addParent      int64
+	addBody        string
 )
 
 var addCmd = &cobra.Command{
@@ -31,6 +34,7 @@ func init() {
 	addCmd.Flags().StringVarP(&addPriority, "priority", "p", models.PriorityMedium, "Priority level (low|medium|high)")
 	addCmd.Flags().StringVarP(&addTags, "tags", "t", "", "Comma-separated tags")
 	addCmd.Flags().Int64Var(&addParent, "parent", 0, "Parent task ID")
+	addCmd.Flags().StringVarP(&addBody, "body", "b", "", "Task body content (markdown)")
 }
 
 func runAdd(cmd *cobra.Command, args []string) error {
@@ -78,6 +82,21 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		parent = &addParent
 	}
 
+	// Determine body content (--body flag takes precedence over stdin)
+	body := addBody
+	if body == "" {
+		// Check if stdin is piped
+		fileInfo, err := os.Stdin.Stat()
+		if err == nil && (fileInfo.Mode()&os.ModeCharDevice) == 0 {
+			// stdin is piped, read it
+			data, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("failed to read stdin: %w", err)
+			}
+			body = strings.TrimSpace(string(data))
+		}
+	}
+
 	// Create task
 	now := time.Now()
 	task := &models.Task{
@@ -90,7 +109,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		Created:     now,
 		Updated:     now,
 		Tags:        tags,
-		Body:        "",
+		Body:        body,
 	}
 
 	// Save task

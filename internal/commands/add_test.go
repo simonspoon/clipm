@@ -2,6 +2,7 @@ package commands
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -271,4 +272,258 @@ func TestAddCommandTagsParsing(t *testing.T) {
 			assert.Equal(t, tt.expected, task.Tags)
 		})
 	}
+}
+
+func TestAddCommandWithBodyFlag(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	// Reset flags
+	addDescription = ""
+	addPriority = models.PriorityMedium
+	addTags = ""
+	addParent = 0
+	addBody = "This is the task body content"
+
+	// Test add with body flag
+	err := runAdd(nil, []string{"Task with body"})
+	require.NoError(t, err)
+
+	// Verify task body was set
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	index, err := store.LoadIndex()
+	require.NoError(t, err)
+
+	var taskID int64
+	for id := range index.Tasks {
+		taskID = id
+	}
+
+	task, err := store.LoadTask(taskID)
+	require.NoError(t, err)
+	assert.Equal(t, "Task with body", task.Name)
+	assert.Equal(t, "This is the task body content", task.Body)
+}
+
+func TestAddCommandWithBodyFlagMultiline(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	// Reset flags
+	addDescription = ""
+	addPriority = models.PriorityMedium
+	addTags = ""
+	addParent = 0
+	addBody = "# Heading\n\nThis is a paragraph.\n\n- Item 1\n- Item 2"
+
+	// Test add with multiline body
+	err := runAdd(nil, []string{"Task with multiline body"})
+	require.NoError(t, err)
+
+	// Verify task body preserves formatting
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	index, err := store.LoadIndex()
+	require.NoError(t, err)
+
+	var taskID int64
+	for id := range index.Tasks {
+		taskID = id
+	}
+
+	task, err := store.LoadTask(taskID)
+	require.NoError(t, err)
+	assert.Equal(t, "# Heading\n\nThis is a paragraph.\n\n- Item 1\n- Item 2", task.Body)
+}
+
+func TestAddCommandWithStdin(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	// Reset flags
+	addDescription = ""
+	addPriority = models.PriorityMedium
+	addTags = ""
+	addParent = 0
+	addBody = ""
+
+	// Mock stdin with pipe
+	oldStdin := os.Stdin
+	defer func() { os.Stdin = oldStdin }()
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdin = r
+
+	// Write test data to stdin
+	stdinContent := "Body from stdin"
+	_, err = w.WriteString(stdinContent)
+	require.NoError(t, err)
+	w.Close()
+
+	// Test add with stdin
+	err = runAdd(nil, []string{"Task with stdin body"})
+	require.NoError(t, err)
+
+	// Verify task body was read from stdin
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	index, err := store.LoadIndex()
+	require.NoError(t, err)
+
+	var taskID int64
+	for id := range index.Tasks {
+		taskID = id
+	}
+
+	task, err := store.LoadTask(taskID)
+	require.NoError(t, err)
+	assert.Equal(t, "Task with stdin body", task.Name)
+	assert.Equal(t, strings.TrimSpace(stdinContent), task.Body)
+}
+
+func TestAddCommandBodyFlagTakesPrecedenceOverStdin(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	// Reset flags
+	addDescription = ""
+	addPriority = models.PriorityMedium
+	addTags = ""
+	addParent = 0
+	addBody = "Body from flag"
+
+	// Mock stdin with pipe
+	oldStdin := os.Stdin
+	defer func() { os.Stdin = oldStdin }()
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdin = r
+
+	// Write test data to stdin (should be ignored)
+	_, err = w.WriteString("Body from stdin (should be ignored)")
+	require.NoError(t, err)
+	w.Close()
+
+	// Test add - flag should take precedence
+	err = runAdd(nil, []string{"Task with both flag and stdin"})
+	require.NoError(t, err)
+
+	// Verify flag value was used, not stdin
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	index, err := store.LoadIndex()
+	require.NoError(t, err)
+
+	var taskID int64
+	for id := range index.Tasks {
+		taskID = id
+	}
+
+	task, err := store.LoadTask(taskID)
+	require.NoError(t, err)
+	assert.Equal(t, "Body from flag", task.Body)
+}
+
+func TestAddCommandEmptyBody(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	// Reset flags (no body flag, no stdin)
+	addDescription = "Description only"
+	addPriority = models.PriorityMedium
+	addTags = ""
+	addParent = 0
+	addBody = ""
+
+	// Test add without body (backward compatibility)
+	err := runAdd(nil, []string{"Task without body"})
+	require.NoError(t, err)
+
+	// Verify task body is empty
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	index, err := store.LoadIndex()
+	require.NoError(t, err)
+
+	var taskID int64
+	for id := range index.Tasks {
+		taskID = id
+	}
+
+	task, err := store.LoadTask(taskID)
+	require.NoError(t, err)
+	assert.Equal(t, "Task without body", task.Name)
+	assert.Equal(t, "Description only", task.Description)
+	assert.Empty(t, task.Body)
+}
+
+func TestAddCommandStdinWithMultilineContent(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	// Reset flags
+	addDescription = ""
+	addPriority = models.PriorityMedium
+	addTags = ""
+	addParent = 0
+	addBody = ""
+
+	// Mock stdin with pipe
+	oldStdin := os.Stdin
+	defer func() { os.Stdin = oldStdin }()
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdin = r
+
+	// Write multiline markdown to stdin
+	stdinContent := `# Task Details
+
+This is a detailed description of the task.
+
+## Implementation Steps
+
+1. Step one
+2. Step two
+3. Step three
+
+## Notes
+
+- Important note 1
+- Important note 2`
+
+	_, err = w.WriteString(stdinContent)
+	require.NoError(t, err)
+	w.Close()
+
+	// Test add with multiline stdin
+	err = runAdd(nil, []string{"Task with multiline stdin"})
+	require.NoError(t, err)
+
+	// Verify multiline content preserved
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	index, err := store.LoadIndex()
+	require.NoError(t, err)
+
+	var taskID int64
+	for id := range index.Tasks {
+		taskID = id
+	}
+
+	task, err := store.LoadTask(taskID)
+	require.NoError(t, err)
+	assert.Equal(t, strings.TrimSpace(stdinContent), task.Body)
+	assert.Contains(t, task.Body, "# Task Details")
+	assert.Contains(t, task.Body, "## Implementation Steps")
+	assert.Contains(t, task.Body, "1. Step one")
 }

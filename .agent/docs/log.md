@@ -47,3 +47,9 @@
 - Changed: internal/commands/parent_test.go, internal/commands/unparent_test.go, internal/commands/tree_test.go
 - Outcome: success
 - Notes: 21 new tests for Phase 3 commands (9 parent, 5 unparent, 7 tree). Total: 70 tests passing (6 storage + 64 commands). Tested circular dependency prevention, complex hierarchies, filtering, and edge cases. Phase 3 complete.
+
+## [2025-11-15] Add Command Body Content Support
+- Task: Add --body flag and stdin reading capability to add command
+- Changed: internal/commands/add.go, internal/commands/add_test.go
+- Outcome: success
+- Notes: Implemented --body/-b flag for inline body content and stdin reading for piped input. Flag takes precedence over stdin. Added 6 comprehensive tests covering flag usage, stdin reading, precedence, multiline content, and backward compatibility. All 76 tests passing (6 storage + 70 commands). Users can now add full task body content in one command via `clipm add "name" --body "content"` or `echo "content" | clipm add "name"`.
