@@ -24,9 +24,15 @@ var (
 var addCmd = &cobra.Command{
 	Use:   "add <name>",
 	Short: "Add a new task",
-	Long:  `Add a new task with the specified name and optional metadata.`,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runAdd,
+	Long: `Add a new task with the specified name and optional metadata.
+
+Body content can be provided in two ways:
+  1. Using the --body/-b flag for inline content
+  2. Piping content via stdin (e.g., echo "content" | clipm add "task name")
+
+If both are provided, the --body flag takes precedence over stdin.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runAdd,
 }
 
 func init() {
