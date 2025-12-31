@@ -32,3 +32,6 @@ Thumbs.db
 
 # clipm directories (for testing)
 .clipm/
+
+# Claude Code
+CLAUDE.md
