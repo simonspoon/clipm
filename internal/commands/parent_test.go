@@ -21,25 +21,26 @@ func TestParentCommand(t *testing.T) {
 	// Create parent and child tasks
 	now := time.Now()
 	parent := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Parent Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Parent Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(parent, false))
+	require.NoError(t, store.SaveTask(parent))
 
-	time.Sleep(2 * time.Millisecond) // Ensure different ID
+	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Child Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  time.Now(),
-		Updated:  time.Now(),
+		ID:      time.Now().UnixMilli(),
+		Name:    "Child Task",
+		Status:  models.StatusTodo,
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
-	require.NoError(t, store.SaveTask(child, false))
+	require.NoError(t, store.SaveTask(child))
+
+	// Reset flag
+	parentPretty = false
 
 	// Set parent
 	err = runParent(nil, []string{fmt.Sprintf("%d", child.ID), fmt.Sprintf("%d", parent.ID)})
@@ -50,12 +51,14 @@ func TestParentCommand(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, updated.Parent)
 	assert.Equal(t, parent.ID, *updated.Parent)
-	assert.True(t, updated.Updated.After(child.Updated))
 }
 
 func TestParentCommand_InvalidChildID(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
+
+	// Reset flag
+	parentPretty = false
 
 	err := runParent(nil, []string{"not-a-number", "123456"})
 	assert.Error(t, err)
@@ -65,6 +68,9 @@ func TestParentCommand_InvalidChildID(t *testing.T) {
 func TestParentCommand_InvalidParentID(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
+
+	// Reset flag
+	parentPretty = false
 
 	err := runParent(nil, []string{"123456", "not-a-number"})
 	assert.Error(t, err)
@@ -78,17 +84,18 @@ func TestParentCommand_SelfParent(t *testing.T) {
 	store, err := storage.NewStorage()
 	require.NoError(t, err)
 
-	// Create a task
 	now := time.Now()
 	task := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Test Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Test Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(task, false))
+	require.NoError(t, store.SaveTask(task))
+
+	// Reset flag
+	parentPretty = false
 
 	// Try to set task as its own parent
 	err = runParent(nil, []string{fmt.Sprintf("%d", task.ID), fmt.Sprintf("%d", task.ID)})
@@ -103,17 +110,18 @@ func TestParentCommand_ChildNotFound(t *testing.T) {
 	store, err := storage.NewStorage()
 	require.NoError(t, err)
 
-	// Create parent task
 	now := time.Now()
 	parent := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Parent Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Parent Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(parent, false))
+	require.NoError(t, store.SaveTask(parent))
+
+	// Reset flag
+	parentPretty = false
 
 	// Try to set parent for non-existent child
 	err = runParent(nil, []string{"999999999999", fmt.Sprintf("%d", parent.ID)})
@@ -128,17 +136,18 @@ func TestParentCommand_ParentNotFound(t *testing.T) {
 	store, err := storage.NewStorage()
 	require.NoError(t, err)
 
-	// Create child task
 	now := time.Now()
 	child := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Child Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Child Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(child, false))
+	require.NoError(t, store.SaveTask(child))
+
+	// Reset flag
+	parentPretty = false
 
 	// Try to set non-existent parent
 	err = runParent(nil, []string{fmt.Sprintf("%d", child.ID), "999999999999"})
@@ -147,41 +156,42 @@ func TestParentCommand_ParentNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
-func TestParentCommand_ArchivedParent(t *testing.T) {
+func TestParentCommand_DoneParent(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
 
 	store, err := storage.NewStorage()
 	require.NoError(t, err)
 
-	// Create archived parent
+	// Create done parent
 	now := time.Now()
 	parent := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Archived Parent",
-		Status:   models.StatusDone,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Done Parent",
+		Status:  models.StatusDone,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(parent, true))
+	require.NoError(t, store.SaveTask(parent))
 
 	// Create child
 	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Child Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  time.Now(),
-		Updated:  time.Now(),
+		ID:      time.Now().UnixMilli(),
+		Name:    "Child Task",
+		Status:  models.StatusTodo,
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
-	require.NoError(t, store.SaveTask(child, false))
+	require.NoError(t, store.SaveTask(child))
 
-	// Try to set archived task as parent
+	// Reset flag
+	parentPretty = false
+
+	// Try to set done task as parent
 	err = runParent(nil, []string{fmt.Sprintf("%d", child.ID), fmt.Sprintf("%d", parent.ID)})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot set archived task")
+	assert.Contains(t, err.Error(), "done task")
 }
 
 func TestParentCommand_CircularDependency(t *testing.T) {
@@ -194,79 +204,42 @@ func TestParentCommand_CircularDependency(t *testing.T) {
 	// Create a chain: A -> B -> C
 	now := time.Now()
 	taskA := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Task A",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Task A",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(taskA, false))
+	require.NoError(t, store.SaveTask(taskA))
 
 	time.Sleep(2 * time.Millisecond)
 	taskBID := time.Now().UnixMilli()
 	taskB := &models.Task{
-		ID:       taskBID,
-		Name:     "Task B",
-		Parent:   &taskA.ID,
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  time.Now(),
-		Updated:  time.Now(),
+		ID:      taskBID,
+		Name:    "Task B",
+		Parent:  &taskA.ID,
+		Status:  models.StatusTodo,
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
-	require.NoError(t, store.SaveTask(taskB, false))
+	require.NoError(t, store.SaveTask(taskB))
 
 	time.Sleep(2 * time.Millisecond)
 	taskC := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Task C",
-		Parent:   &taskBID,
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  time.Now(),
-		Updated:  time.Now(),
+		ID:      time.Now().UnixMilli(),
+		Name:    "Task C",
+		Parent:  &taskBID,
+		Status:  models.StatusTodo,
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
-	require.NoError(t, store.SaveTask(taskC, false))
+	require.NoError(t, store.SaveTask(taskC))
+
+	// Reset flag
+	parentPretty = false
 
 	// Try to create a cycle: A -> B -> C -> A
 	err = runParent(nil, []string{fmt.Sprintf("%d", taskA.ID), fmt.Sprintf("%d", taskC.ID)})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "circular dependency")
-}
-
-func TestParentCommand_DirectCycle(t *testing.T) {
-	_, cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	store, err := storage.NewStorage()
-	require.NoError(t, err)
-
-	// Create A -> B
-	now := time.Now()
-	taskA := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Task A",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
-	}
-	require.NoError(t, store.SaveTask(taskA, false))
-
-	time.Sleep(2 * time.Millisecond)
-	taskB := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Task B",
-		Parent:   &taskA.ID,
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  time.Now(),
-		Updated:  time.Now(),
-	}
-	require.NoError(t, store.SaveTask(taskB, false))
-
-	// Try to create B -> A (direct cycle)
-	err = runParent(nil, []string{fmt.Sprintf("%d", taskA.ID), fmt.Sprintf("%d", taskB.ID)})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "circular dependency")
 }

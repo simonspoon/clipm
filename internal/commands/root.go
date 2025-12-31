@@ -9,9 +9,9 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "clipm",
-	Short: "CLI Project Manager - A lightweight, markdown-based task manager",
-	Long: `clipm is a CLI-based task manager that uses human-readable markdown files for storage.
-Designed for developers who want to track tasks alongside their code without heavy tooling or cloud dependencies.`,
+	Short: "CLI Project Manager - A lightweight JSON-based task queue for LLMs",
+	Long: `clipm is a CLI-based task manager designed for use by LLMs and agents.
+It uses a single JSON file for storage and outputs JSON by default for easy parsing.`,
 }
 
 // Execute runs the root command
@@ -29,10 +29,10 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(showCmd)
 	rootCmd.AddCommand(statusCmd)
-	rootCmd.AddCommand(doneCmd)
 	rootCmd.AddCommand(deleteCmd)
-	rootCmd.AddCommand(editCmd)
 	rootCmd.AddCommand(parentCmd)
 	rootCmd.AddCommand(unparentCmd)
 	rootCmd.AddCommand(treeCmd)
+	rootCmd.AddCommand(nextCmd)
+	rootCmd.AddCommand(pruneCmd)
 }

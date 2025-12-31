@@ -21,14 +21,16 @@ func TestStatusCommand(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Test Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Test Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(task, false))
+	require.NoError(t, store.SaveTask(task))
+
+	// Reset flag
+	statusPretty = false
 
 	// Test updating status
 	err = runStatus(nil, []string{fmt.Sprintf("%d", task.ID), models.StatusInProgress})
@@ -51,14 +53,16 @@ func TestStatusCommand_InvalidStatus(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Test Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Test Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(task, false))
+	require.NoError(t, store.SaveTask(task))
+
+	// Reset flag
+	statusPretty = false
 
 	// Test invalid status
 	err = runStatus(nil, []string{fmt.Sprintf("%d", task.ID), "invalid-status"})
@@ -70,6 +74,9 @@ func TestStatusCommand_TaskNotFound(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
 
+	// Reset flag
+	statusPretty = false
+
 	// Test non-existent task
 	err := runStatus(nil, []string{"999999999999", models.StatusDone})
 	assert.Error(t, err)
@@ -79,6 +86,9 @@ func TestStatusCommand_TaskNotFound(t *testing.T) {
 func TestStatusCommand_InvalidID(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
+
+	// Reset flag
+	statusPretty = false
 
 	// Test invalid ID format
 	err := runStatus(nil, []string{"not-a-number", models.StatusDone})
@@ -95,17 +105,19 @@ func TestStatusCommand_AllStatuses(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Test Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Test Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(task, false))
+	require.NoError(t, store.SaveTask(task))
+
+	// Reset flag
+	statusPretty = false
 
 	// Test each valid status
-	statuses := []string{models.StatusTodo, models.StatusInProgress, models.StatusDone, models.StatusBlocked}
+	statuses := []string{models.StatusTodo, models.StatusInProgress, models.StatusDone}
 	for _, status := range statuses {
 		err = runStatus(nil, []string{fmt.Sprintf("%d", task.ID), status})
 		require.NoError(t, err)
@@ -116,30 +128,50 @@ func TestStatusCommand_AllStatuses(t *testing.T) {
 	}
 }
 
-func TestStatusCommand_ArchivedTask(t *testing.T) {
+func TestStatusCommand_CannotMarkDoneWithUndoneChildren(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
 
 	store, err := storage.NewStorage()
 	require.NoError(t, err)
 
-	// Create and archive a task
 	now := time.Now()
-	task := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Test Task",
-		Status:   models.StatusDone,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+
+	// Create parent task
+	parent := &models.Task{
+		ID:      now.UnixMilli(),
+		Name:    "Parent Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(task, true))
+	require.NoError(t, store.SaveTask(parent))
 
-	// Should be able to update archived task status
-	err = runStatus(nil, []string{fmt.Sprintf("%d", task.ID), models.StatusTodo})
+	// Create child task
+	time.Sleep(2 * time.Millisecond)
+	child := &models.Task{
+		ID:      time.Now().UnixMilli(),
+		Name:    "Child Task",
+		Status:  models.StatusTodo,
+		Parent:  &parent.ID,
+		Created: time.Now(),
+		Updated: time.Now(),
+	}
+	require.NoError(t, store.SaveTask(child))
+
+	// Reset flag
+	statusPretty = false
+
+	// Try to mark parent as done - should fail
+	err = runStatus(nil, []string{fmt.Sprintf("%d", parent.ID), models.StatusDone})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "undone children")
+
+	// Mark child as done
+	err = runStatus(nil, []string{fmt.Sprintf("%d", child.ID), models.StatusDone})
 	require.NoError(t, err)
 
-	updated, err := store.LoadTask(task.ID)
+	// Now parent can be marked done
+	err = runStatus(nil, []string{fmt.Sprintf("%d", parent.ID), models.StatusDone})
 	require.NoError(t, err)
-	assert.Equal(t, models.StatusTodo, updated.Status)
 }

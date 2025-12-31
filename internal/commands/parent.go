@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,12 +11,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var parentPretty bool
+
 var parentCmd = &cobra.Command{
 	Use:   "parent <id> <parent-id>",
 	Short: "Set a task's parent",
 	Long:  `Set the parent of a task to create a hierarchical relationship. Prevents circular dependencies.`,
 	Args:  cobra.ExactArgs(2),
 	RunE:  runParent,
+}
+
+func init() {
+	parentCmd.Flags().BoolVar(&parentPretty, "pretty", false, "Pretty print output")
 }
 
 func runParent(cmd *cobra.Command, args []string) error {
@@ -39,38 +46,26 @@ func runParent(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Load index
-	index, err := store.LoadIndex()
-	if err != nil {
-		return err
-	}
-
 	// Check child task exists
-	childEntry, exists := index.GetTask(childID)
-	if !exists {
+	childTask, err := store.LoadTask(childID)
+	if err != nil {
 		return fmt.Errorf("task %d not found", childID)
 	}
 
 	// Check parent task exists
-	parentEntry, exists := index.GetTask(parentID)
-	if !exists {
+	parentTask, err := store.LoadTask(parentID)
+	if err != nil {
 		return fmt.Errorf("parent task %d not found", parentID)
 	}
 
-	// Check parent is not archived
-	if parentEntry.Archived {
-		return fmt.Errorf("cannot set archived task %d as parent", parentID)
+	// Check parent is not done
+	if parentTask.Status == models.StatusDone {
+		return fmt.Errorf("cannot set done task %d as parent", parentID)
 	}
 
 	// Check for circular dependencies
-	if wouldCreateCycle(index, childID, parentID) {
+	if wouldCreateCycle(store, childID, parentID) {
 		return fmt.Errorf("cannot set parent - would create circular dependency")
-	}
-
-	// Load the child task
-	childTask, err := store.LoadTask(childID)
-	if err != nil {
-		return err
 	}
 
 	// Update parent and timestamp
@@ -78,19 +73,23 @@ func runParent(cmd *cobra.Command, args []string) error {
 	childTask.Updated = time.Now()
 
 	// Save the task
-	if err := store.SaveTask(childTask, childEntry.Archived); err != nil {
+	if err := store.SaveTask(childTask); err != nil {
 		return err
 	}
 
-	// Print success message
-	green := color.New(color.FgGreen)
-	green.Printf("✓ Task %d is now a child of %d\n", childID, parentID)
+	if parentPretty {
+		green := color.New(color.FgGreen)
+		green.Printf("Task %d is now a child of %d\n", childID, parentID)
+	} else {
+		out, _ := json.Marshal(childTask)
+		fmt.Println(string(out))
+	}
 
 	return nil
 }
 
 // wouldCreateCycle checks if setting parentID as the parent of childID would create a cycle
-func wouldCreateCycle(index *models.Index, childID, parentID int64) bool {
+func wouldCreateCycle(store *storage.Storage, childID, parentID int64) bool {
 	// Traverse up the parent chain from the proposed parent
 	// If we encounter childID, we have a cycle
 	currentID := parentID
@@ -109,13 +108,13 @@ func wouldCreateCycle(index *models.Index, childID, parentID int64) bool {
 		}
 
 		// Get the current task's parent
-		entry, exists := index.GetTask(currentID)
-		if !exists || entry.Parent == nil {
-			// Reached a top-level task, no cycle
+		task, err := store.LoadTask(currentID)
+		if err != nil || task.Parent == nil {
+			// Reached a top-level task or error, no cycle
 			return false
 		}
 
 		// Move up to parent
-		currentID = *entry.Parent
+		currentID = *task.Parent
 	}
 }

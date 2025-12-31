@@ -19,7 +19,10 @@ func TestShowCommand(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a test task
-	taskID := createTestTask(t, store, "Test Task", models.StatusTodo, models.PriorityHigh, []string{"test"}, nil)
+	taskID := createTestTask(t, store, "Test Task", models.StatusTodo, nil)
+
+	// Reset flag
+	showPretty = false
 
 	// Test show command
 	err = runShow(nil, []string{strconv.FormatInt(taskID, 10)})
@@ -34,17 +37,19 @@ func TestShowCommandWithAllFields(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create parent task
-	parentID := createTestTask(t, store, "Parent Task", models.StatusTodo, models.PriorityMedium, nil, nil)
+	parentID := createTestTask(t, store, "Parent Task", models.StatusTodo, nil)
 
-	// Create task with all fields
-	taskID := createTestTask(t, store, "Full Task", models.StatusInProgress, models.PriorityHigh, []string{"backend", "security"}, &parentID)
+	// Create task with parent
+	taskID := createTestTask(t, store, "Child Task", models.StatusInProgress, &parentID)
 
-	// Load task to add body
+	// Load task to add description
 	task, err := store.LoadTask(taskID)
 	require.NoError(t, err)
 	task.Description = "Full description"
-	task.Body = "## Notes\n\nThis is a test task with body content."
-	require.NoError(t, store.SaveTask(task, false))
+	require.NoError(t, store.SaveTask(task))
+
+	// Reset flag
+	showPretty = false
 
 	// Show the task - just verify it doesn't error
 	err = runShow(nil, []string{strconv.FormatInt(taskID, 10)})
@@ -55,6 +60,9 @@ func TestShowCommandTaskNotFound(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
 
+	// Reset flag
+	showPretty = false
+
 	// Test show non-existent task
 	err := runShow(nil, []string{"999999999999"})
 	assert.Error(t, err)
@@ -64,26 +72,13 @@ func TestShowCommandInvalidID(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
 
+	// Reset flag
+	showPretty = false
+
 	// Test show with invalid ID
 	err := runShow(nil, []string{"not-a-number"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid task ID")
-}
-
-func TestShowCommandArchivedTask(t *testing.T) {
-	_, cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	store, err := storage.NewStorage()
-	require.NoError(t, err)
-
-	// Create and archive a task
-	taskID := createTestTask(t, store, "Archived Task", models.StatusTodo, models.PriorityMedium, nil, nil)
-	require.NoError(t, store.ArchiveTask(taskID))
-
-	// Show should still work for archived tasks
-	err = runShow(nil, []string{strconv.FormatInt(taskID, 10)})
-	require.NoError(t, err)
 }
 
 func TestShowCommandNotInProject(t *testing.T) {
@@ -97,6 +92,9 @@ func TestShowCommandNotInProject(t *testing.T) {
 	defer os.Chdir(origDir)
 
 	require.NoError(t, os.Chdir(tmpDir))
+
+	// Reset flag
+	showPretty = false
 
 	// Test show should fail
 	err = runShow(nil, []string{"123456789"})

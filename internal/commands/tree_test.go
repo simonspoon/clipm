@@ -13,6 +13,9 @@ func TestTreeCommand_Empty(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
 
+	// Reset flag
+	treePretty = true
+
 	// Should not error on empty project
 	err := runTree(nil, []string{})
 	require.NoError(t, err)
@@ -28,14 +31,16 @@ func TestTreeCommand_SingleTask(t *testing.T) {
 	// Create a single task
 	now := time.Now()
 	task := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Single Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Single Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(task, false))
+	require.NoError(t, store.SaveTask(task))
+
+	// Reset flag
+	treePretty = true
 
 	// Should display without error
 	err = runTree(nil, []string{})
@@ -52,30 +57,28 @@ func TestTreeCommand_SimpleHierarchy(t *testing.T) {
 	// Create parent
 	now := time.Now()
 	parent := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Parent Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityHigh,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Parent Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(parent, false))
+	require.NoError(t, store.SaveTask(parent))
 
 	// Create child
 	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Child Task",
-		Parent:   &parent.ID,
-		Status:   models.StatusInProgress,
-		Priority: models.PriorityMedium,
-		Created:  time.Now(),
-		Updated:  time.Now(),
+		ID:      time.Now().UnixMilli(),
+		Name:    "Child Task",
+		Parent:  &parent.ID,
+		Status:  models.StatusInProgress,
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
-	require.NoError(t, store.SaveTask(child, false))
+	require.NoError(t, store.SaveTask(child))
 
 	// Reset flag
-	treeAll = false
+	treePretty = true
 
 	// Should display hierarchy
 	err = runTree(nil, []string{})
@@ -89,172 +92,56 @@ func TestTreeCommand_ComplexHierarchy(t *testing.T) {
 	store, err := storage.NewStorage()
 	require.NoError(t, err)
 
-	// Create a multi-level hierarchy
-	// Root1
-	//   ├─ Child1
-	//   └─ Child2
-	//       └─ Grandchild1
-	// Root2
-	//   └─ Child3
-
 	now := time.Now()
 	root1 := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Root 1",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityHigh,
-		Created:  now,
-		Updated:  now,
+		ID:      now.UnixMilli(),
+		Name:    "Root 1",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
 	}
-	require.NoError(t, store.SaveTask(root1, false))
+	require.NoError(t, store.SaveTask(root1))
 
 	time.Sleep(2 * time.Millisecond)
 	child1 := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Child 1",
-		Parent:   &root1.ID,
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  time.Now(),
-		Updated:  time.Now(),
+		ID:      time.Now().UnixMilli(),
+		Name:    "Child 1",
+		Parent:  &root1.ID,
+		Status:  models.StatusTodo,
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
-	require.NoError(t, store.SaveTask(child1, false))
+	require.NoError(t, store.SaveTask(child1))
 
 	time.Sleep(2 * time.Millisecond)
 	child2ID := time.Now().UnixMilli()
 	child2 := &models.Task{
-		ID:       child2ID,
-		Name:     "Child 2",
-		Parent:   &root1.ID,
-		Status:   models.StatusInProgress,
-		Priority: models.PriorityMedium,
-		Created:  time.Now(),
-		Updated:  time.Now(),
+		ID:      child2ID,
+		Name:    "Child 2",
+		Parent:  &root1.ID,
+		Status:  models.StatusInProgress,
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
-	require.NoError(t, store.SaveTask(child2, false))
+	require.NoError(t, store.SaveTask(child2))
 
 	time.Sleep(2 * time.Millisecond)
 	grandchild1 := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Grandchild 1",
-		Parent:   &child2ID,
-		Status:   models.StatusBlocked,
-		Priority: models.PriorityLow,
-		Created:  time.Now(),
-		Updated:  time.Now(),
+		ID:      time.Now().UnixMilli(),
+		Name:    "Grandchild 1",
+		Parent:  &child2ID,
+		Status:  models.StatusTodo,
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
-	require.NoError(t, store.SaveTask(grandchild1, false))
-
-	time.Sleep(2 * time.Millisecond)
-	root2 := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Root 2",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityHigh,
-		Created:  time.Now(),
-		Updated:  time.Now(),
-	}
-	require.NoError(t, store.SaveTask(root2, false))
-
-	time.Sleep(2 * time.Millisecond)
-	child3 := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Child 3",
-		Parent:   &root2.ID,
-		Status:   models.StatusDone,
-		Priority: models.PriorityLow,
-		Created:  time.Now(),
-		Updated:  time.Now(),
-	}
-	require.NoError(t, store.SaveTask(child3, false))
+	require.NoError(t, store.SaveTask(grandchild1))
 
 	// Reset flag
-	treeAll = false
+	treePretty = true
 
 	// Should display full hierarchy
 	err = runTree(nil, []string{})
 	require.NoError(t, err)
-}
-
-func TestTreeCommand_ExcludeArchived(t *testing.T) {
-	_, cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	store, err := storage.NewStorage()
-	require.NoError(t, err)
-
-	// Create active task
-	now := time.Now()
-	active := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Active Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
-	}
-	require.NoError(t, store.SaveTask(active, false))
-
-	// Create archived task
-	time.Sleep(2 * time.Millisecond)
-	archived := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Archived Task",
-		Status:   models.StatusDone,
-		Priority: models.PriorityMedium,
-		Created:  time.Now(),
-		Updated:  time.Now(),
-	}
-	require.NoError(t, store.SaveTask(archived, true))
-
-	// Reset flag
-	treeAll = false
-
-	// Should only show active task
-	err = runTree(nil, []string{})
-	require.NoError(t, err)
-}
-
-func TestTreeCommand_IncludeArchived(t *testing.T) {
-	_, cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	store, err := storage.NewStorage()
-	require.NoError(t, err)
-
-	// Create active task
-	now := time.Now()
-	active := &models.Task{
-		ID:       now.UnixMilli(),
-		Name:     "Active Task",
-		Status:   models.StatusTodo,
-		Priority: models.PriorityMedium,
-		Created:  now,
-		Updated:  now,
-	}
-	require.NoError(t, store.SaveTask(active, false))
-
-	// Create archived task
-	time.Sleep(2 * time.Millisecond)
-	archived := &models.Task{
-		ID:       time.Now().UnixMilli(),
-		Name:     "Archived Task",
-		Status:   models.StatusDone,
-		Priority: models.PriorityMedium,
-		Created:  time.Now(),
-		Updated:  time.Now(),
-	}
-	require.NoError(t, store.SaveTask(archived, true))
-
-	// Set flag to include archived
-	treeAll = true
-
-	// Should show both tasks
-	err = runTree(nil, []string{})
-	require.NoError(t, err)
-
-	// Reset flag
-	treeAll = false
 }
 
 func TestTreeCommand_MultipleRoots(t *testing.T) {
@@ -268,19 +155,18 @@ func TestTreeCommand_MultipleRoots(t *testing.T) {
 	now := time.Now()
 	for i := 0; i < 3; i++ {
 		task := &models.Task{
-			ID:       now.Add(time.Duration(i) * 2 * time.Millisecond).UnixMilli(),
-			Name:     "Root Task",
-			Status:   models.StatusTodo,
-			Priority: models.PriorityMedium,
-			Created:  now.Add(time.Duration(i) * 2 * time.Millisecond),
-			Updated:  now.Add(time.Duration(i) * 2 * time.Millisecond),
+			ID:      now.Add(time.Duration(i) * 2 * time.Millisecond).UnixMilli(),
+			Name:    "Root Task",
+			Status:  models.StatusTodo,
+			Created: now.Add(time.Duration(i) * 2 * time.Millisecond),
+			Updated: now.Add(time.Duration(i) * 2 * time.Millisecond),
 		}
 		time.Sleep(2 * time.Millisecond)
-		require.NoError(t, store.SaveTask(task, false))
+		require.NoError(t, store.SaveTask(task))
 	}
 
 	// Reset flag
-	treeAll = false
+	treePretty = true
 
 	// Should display all roots
 	err = runTree(nil, []string{})

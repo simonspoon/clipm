@@ -1,32 +1,31 @@
 package commands
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
-	"os"
-	"strings"
 
 	"clipm/internal/storage"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
-var (
-	deleteForce      bool
-	deleteOrphanKids bool
-)
+var deletePretty bool
 
 var deleteCmd = &cobra.Command{
 	Use:   "delete <id>",
 	Short: "Delete a task",
-	Long:  `Delete a task. If the task has children, you'll be prompted to delete them or orphan them.`,
+	Long:  `Delete a task. Cannot delete tasks that have undone children.`,
 	Args:  cobra.ExactArgs(1),
 	RunE:  runDelete,
 }
 
 func init() {
-	deleteCmd.Flags().BoolVarP(&deleteForce, "force", "f", false, "Skip confirmation prompt")
-	deleteCmd.Flags().BoolVar(&deleteOrphanKids, "orphan", false, "Orphan child tasks instead of deleting them")
+	deleteCmd.Flags().BoolVar(&deletePretty, "pretty", false, "Pretty print output")
+}
+
+type deleteResult struct {
+	Success bool  `json:"success"`
+	ID      int64 `json:"id"`
 }
 
 func runDelete(cmd *cobra.Command, args []string) error {
@@ -42,8 +41,8 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Load the task
-	task, err := store.LoadTask(id)
+	// Load the task to verify it exists
+	_, err = store.LoadTask(id)
 	if err != nil {
 		if err == storage.ErrTaskNotFound {
 			return fmt.Errorf("task %d not found", id)
@@ -51,79 +50,18 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Load index to check for children
-	index, err := store.LoadIndex()
+	// Check for undone children (recursive)
+	hasUndone, err := store.HasUndoneChildren(id)
 	if err != nil {
 		return err
 	}
-
-	// Find children
-	children := index.GetChildren(id)
-
-	// Prompt for confirmation if not forced
-	if !deleteForce {
-		reader := bufio.NewReader(os.Stdin)
-
-		if len(children) > 0 {
-			fmt.Printf("Delete task %d: %q?\n", id, task.Name)
-			fmt.Printf("This task has %d child task(s). Delete children too? [y/N/orphan]: ", len(children))
-
-			response, err := reader.ReadString('\n')
-			if err != nil {
-				return fmt.Errorf("failed to read response: %w", err)
-			}
-
-			response = strings.ToLower(strings.TrimSpace(response))
-
-			if response == "orphan" {
-				deleteOrphanKids = true
-			} else if response != "y" && response != "yes" {
-				return fmt.Errorf("deletion cancelled")
-			}
-		} else {
-			fmt.Printf("Delete task %d: %q? [y/N]: ", id, task.Name)
-
-			response, err := reader.ReadString('\n')
-			if err != nil {
-				return fmt.Errorf("failed to read response: %w", err)
-			}
-
-			response = strings.ToLower(strings.TrimSpace(response))
-
-			if response != "y" && response != "yes" {
-				return fmt.Errorf("deletion cancelled")
-			}
-		}
+	if hasUndone {
+		return fmt.Errorf("cannot delete task: has undone children")
 	}
 
-	// Handle children
-	if len(children) > 0 {
-		if deleteOrphanKids {
-			// Orphan children by setting their parent to nil
-			for _, childID := range children {
-				child, err := store.LoadTask(childID)
-				if err != nil {
-					continue
-				}
-
-				entry, exists := index.GetTask(childID)
-				if !exists {
-					continue
-				}
-
-				child.Parent = nil
-				if err := store.SaveTask(child, entry.Archived); err != nil {
-					return fmt.Errorf("failed to orphan child task %d: %w", childID, err)
-				}
-			}
-		} else {
-			// Delete all children recursively
-			for _, childID := range children {
-				if err := deleteTaskRecursive(store, childID); err != nil {
-					return fmt.Errorf("failed to delete child task %d: %w", childID, err)
-				}
-			}
-		}
+	// Orphan any children before deleting
+	if err := store.OrphanChildren(id); err != nil {
+		return err
 	}
 
 	// Delete the task
@@ -131,35 +69,18 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Print success message
-	green := color.New(color.FgGreen)
-	if len(children) > 0 && !deleteOrphanKids {
-		green.Printf("✓ Deleted task %d and %d child task(s)\n", id, len(children))
-	} else if len(children) > 0 && deleteOrphanKids {
-		green.Printf("✓ Deleted task %d and orphaned %d child task(s)\n", id, len(children))
+	result := deleteResult{
+		Success: true,
+		ID:      id,
+	}
+
+	if deletePretty {
+		green := color.New(color.FgGreen)
+		green.Printf("Deleted task %d\n", id)
 	} else {
-		green.Printf("✓ Deleted task %d\n", id)
+		out, _ := json.Marshal(result)
+		fmt.Println(string(out))
 	}
 
 	return nil
-}
-
-// deleteTaskRecursive recursively deletes a task and all its children
-func deleteTaskRecursive(store *storage.Storage, id int64) error {
-	// Load index to find children
-	index, err := store.LoadIndex()
-	if err != nil {
-		return err
-	}
-
-	// Find and delete children first
-	children := index.GetChildren(id)
-	for _, childID := range children {
-		if err := deleteTaskRecursive(store, childID); err != nil {
-			return err
-		}
-	}
-
-	// Delete the task itself
-	return store.DeleteTask(id)
 }

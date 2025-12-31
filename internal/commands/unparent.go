@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -9,12 +10,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var unparentPretty bool
+
 var unparentCmd = &cobra.Command{
 	Use:   "unparent <id>",
 	Short: "Remove a task's parent",
 	Long:  `Remove the parent relationship from a task, making it a top-level task.`,
 	Args:  cobra.ExactArgs(1),
 	RunE:  runUnparent,
+}
+
+func init() {
+	unparentCmd.Flags().BoolVar(&unparentPretty, "pretty", false, "Pretty print output")
 }
 
 func runUnparent(cmd *cobra.Command, args []string) error {
@@ -30,28 +37,21 @@ func runUnparent(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Load index
-	index, err := store.LoadIndex()
-	if err != nil {
-		return err
-	}
-
-	// Check task exists
-	entry, exists := index.GetTask(id)
-	if !exists {
-		return fmt.Errorf("task %d not found", id)
-	}
-
 	// Load the task
 	task, err := store.LoadTask(id)
 	if err != nil {
-		return err
+		return fmt.Errorf("task %d not found", id)
 	}
 
 	// Check if task already has no parent
 	if task.Parent == nil {
-		yellow := color.New(color.FgYellow)
-		yellow.Printf("Task %d is already a top-level task\n", id)
+		if unparentPretty {
+			yellow := color.New(color.FgYellow)
+			yellow.Printf("Task %d is already a top-level task\n", id)
+		} else {
+			out, _ := json.Marshal(task)
+			fmt.Println(string(out))
+		}
 		return nil
 	}
 
@@ -60,13 +60,17 @@ func runUnparent(cmd *cobra.Command, args []string) error {
 	task.Updated = time.Now()
 
 	// Save the task
-	if err := store.SaveTask(task, entry.Archived); err != nil {
+	if err := store.SaveTask(task); err != nil {
 		return err
 	}
 
-	// Print success message
-	green := color.New(color.FgGreen)
-	green.Printf("✓ Task %d is now a top-level task\n", id)
+	if unparentPretty {
+		green := color.New(color.FgGreen)
+		green.Printf("Task %d is now a top-level task\n", id)
+	} else {
+		out, _ := json.Marshal(task)
+		fmt.Println(string(out))
+	}
 
 	return nil
 }

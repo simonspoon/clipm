@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,12 +11,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var statusPretty bool
+
 var statusCmd = &cobra.Command{
 	Use:   "status <id> <status>",
 	Short: "Update task status",
-	Long:  `Update the status of a task. Valid statuses: todo, in-progress, done, blocked`,
+	Long:  `Update the status of a task. Valid statuses: todo, in-progress, done`,
 	Args:  cobra.ExactArgs(2),
 	RunE:  runStatus,
+}
+
+func init() {
+	statusCmd.Flags().BoolVar(&statusPretty, "pretty", false, "Pretty print output")
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
@@ -30,7 +37,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	// Validate status
 	if !models.IsValidStatus(newStatus) {
-		return fmt.Errorf("invalid status %q. Must be: todo, in-progress, done, blocked", newStatus)
+		return fmt.Errorf("invalid status %q. Must be: todo, in-progress, done", newStatus)
 	}
 
 	// Load storage
@@ -48,15 +55,15 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Check if task is in index to determine if archived
-	index, err := store.LoadIndex()
-	if err != nil {
-		return err
-	}
-
-	entry, exists := index.GetTask(id)
-	if !exists {
-		return fmt.Errorf("task %d not found in index", id)
+	// If marking as done, check that all children are done
+	if newStatus == models.StatusDone {
+		hasUndone, err := store.HasUndoneChildren(id)
+		if err != nil {
+			return err
+		}
+		if hasUndone {
+			return fmt.Errorf("cannot mark task as done: has undone children")
+		}
 	}
 
 	// Update status and timestamp
@@ -64,13 +71,17 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	task.Updated = time.Now()
 
 	// Save the task
-	if err := store.SaveTask(task, entry.Archived); err != nil {
+	if err := store.SaveTask(task); err != nil {
 		return err
 	}
 
-	// Print success message
-	green := color.New(color.FgGreen)
-	green.Printf("✓ Updated task %d status: %s\n", task.ID, newStatus)
+	if statusPretty {
+		green := color.New(color.FgGreen)
+		green.Printf("Updated task %d status: %s\n", task.ID, newStatus)
+	} else {
+		out, _ := json.Marshal(task)
+		fmt.Println(string(out))
+	}
 
 	return nil
 }

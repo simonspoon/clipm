@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -10,9 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	treeAll bool
-)
+var treePretty bool
 
 var treeCmd = &cobra.Command{
 	Use:   "tree",
@@ -22,7 +21,8 @@ var treeCmd = &cobra.Command{
 }
 
 func init() {
-	treeCmd.Flags().BoolVarP(&treeAll, "all", "a", false, "Include archived tasks")
+	// tree defaults to pretty since JSON hierarchy is awkward
+	treeCmd.Flags().BoolVar(&treePretty, "pretty", true, "Pretty print output (default true for tree)")
 }
 
 func runTree(cmd *cobra.Command, args []string) error {
@@ -32,23 +32,24 @@ func runTree(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Load index
-	index, err := store.LoadIndex()
+	// Load all tasks
+	tasks, err := store.LoadAll()
 	if err != nil {
 		return err
 	}
 
-	// Filter tasks
-	var tasks []*models.IndexEntry
-	for _, entry := range index.Tasks {
-		if !treeAll && entry.Archived {
-			continue
+	if len(tasks) == 0 {
+		if treePretty {
+			fmt.Println("No tasks found")
+		} else {
+			fmt.Println("[]")
 		}
-		tasks = append(tasks, entry)
+		return nil
 	}
 
-	if len(tasks) == 0 {
-		fmt.Println("No tasks found")
+	if !treePretty {
+		out, _ := json.Marshal(tasks)
+		fmt.Println(string(out))
 		return nil
 	}
 
@@ -58,13 +59,13 @@ func runTree(cmd *cobra.Command, args []string) error {
 	})
 
 	// Build task map for easy lookup
-	taskMap := make(map[int64]*models.IndexEntry)
+	taskMap := make(map[int64]models.Task)
 	for _, task := range tasks {
 		taskMap[task.ID] = task
 	}
 
 	// Find root tasks (tasks with no parent)
-	var roots []*models.IndexEntry
+	var roots []models.Task
 	for _, task := range tasks {
 		if task.Parent == nil {
 			roots = append(roots, task)
@@ -80,14 +81,11 @@ func runTree(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func printTaskTree(task *models.IndexEntry, taskMap map[int64]*models.IndexEntry, prefix string, isLast bool) {
-	// Color setup
+func printTaskTree(task models.Task, taskMap map[int64]models.Task, prefix string, isLast bool) {
 	boldWhite := color.New(color.Bold, color.FgWhite)
 	gray := color.New(color.FgHiBlack)
 	statusColor := getStatusColor(task.Status)
-	priorityColor := getPriorityColor(task.Priority)
 
-	// Print current task
 	var marker string
 	if prefix == "" {
 		marker = ""
@@ -97,21 +95,16 @@ func printTaskTree(task *models.IndexEntry, taskMap map[int64]*models.IndexEntry
 		marker = "├─ "
 	}
 
-	// Format: ID  Name  [STATUS]  [PRIORITY]
+	// Format: ID  Name  [STATUS]
 	fmt.Print(prefix + marker)
 	gray.Printf("%d  ", task.ID)
 	boldWhite.Print(task.Name)
 	fmt.Print("  ")
 	statusColor.Printf("[%s]", formatStatus(task.Status))
-	fmt.Print("  ")
-	priorityColor.Printf("[%s]", formatPriority(task.Priority))
-	if task.Archived {
-		gray.Print(" (archived)")
-	}
 	fmt.Println()
 
 	// Find children
-	var children []*models.IndexEntry
+	var children []models.Task
 	for _, t := range taskMap {
 		if t.Parent != nil && *t.Parent == task.ID {
 			children = append(children, t)
@@ -146,21 +139,6 @@ func getStatusColor(status string) *color.Color {
 		return color.New(color.FgYellow)
 	case models.StatusDone:
 		return color.New(color.FgGreen)
-	case models.StatusBlocked:
-		return color.New(color.FgRed)
-	default:
-		return color.New(color.FgWhite)
-	}
-}
-
-func getPriorityColor(priority string) *color.Color {
-	switch priority {
-	case models.PriorityHigh:
-		return color.New(color.FgRed)
-	case models.PriorityMedium:
-		return color.New(color.FgYellow)
-	case models.PriorityLow:
-		return color.New(color.FgBlue)
 	default:
 		return color.New(color.FgWhite)
 	}
@@ -170,26 +148,11 @@ func formatStatus(status string) string {
 	switch status {
 	case models.StatusInProgress:
 		return "IN-PROG"
-	case models.StatusBlocked:
-		return "BLOCKED"
 	case models.StatusDone:
 		return "DONE"
 	case models.StatusTodo:
 		return "TODO"
 	default:
 		return status
-	}
-}
-
-func formatPriority(priority string) string {
-	switch priority {
-	case models.PriorityHigh:
-		return "HIGH"
-	case models.PriorityMedium:
-		return "MED"
-	case models.PriorityLow:
-		return "LOW"
-	default:
-		return priority
 	}
 }
