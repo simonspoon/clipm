@@ -175,3 +175,27 @@ func TestStatusCommand_CannotMarkDoneWithUndoneChildren(t *testing.T) {
 	err = runStatus(nil, []string{fmt.Sprintf("%d", parent.ID), models.StatusDone})
 	require.NoError(t, err)
 }
+
+func TestStatusCommand_PrettyOutput(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+	task := &models.Task{
+		ID:      now.UnixMilli(),
+		Name:    "Test Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(task))
+
+	// Set pretty flag
+	statusPretty = true
+
+	err = runStatus(nil, []string{fmt.Sprintf("%d", task.ID), models.StatusInProgress})
+	require.NoError(t, err)
+}

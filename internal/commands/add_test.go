@@ -169,3 +169,43 @@ func TestAddCommandNotInProject(t *testing.T) {
 	err = runAdd(nil, []string{"Test Task"})
 	assert.Error(t, err)
 }
+
+func TestAddCommandPrettyOutput(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	addDescription = ""
+	addParent = 0
+	addPretty = true
+
+	err := runAdd(nil, []string{"Test Task"})
+	require.NoError(t, err)
+}
+
+func TestAddCommandToDoneParent(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	// Create a done parent task
+	now := time.Now()
+	parent := &models.Task{
+		ID:      now.UnixMilli(),
+		Name:    "Done Parent",
+		Status:  models.StatusDone,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(parent))
+
+	// Try to add child to done parent
+	addDescription = ""
+	addParent = parent.ID
+	addPretty = false
+
+	err = runAdd(nil, []string{"Child Task"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot add child to done task")
+}

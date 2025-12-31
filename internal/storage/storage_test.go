@@ -469,3 +469,170 @@ func TestOrphanChildren(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, loadedChild2.Parent)
 }
+
+func TestGetRootDir(t *testing.T) {
+	store := NewStorageAt("/some/path")
+	assert.Equal(t, "/some/path", store.GetRootDir())
+}
+
+func TestNewStorage(t *testing.T) {
+	// Create temp directory with .clipm initialized
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Resolve symlinks (macOS /var -> /private/var)
+	tmpDir, err = filepath.EvalSymlinks(tmpDir)
+	require.NoError(t, err)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	// Save original directory and change to temp dir
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	// NewStorage should find the project
+	newStore, err := NewStorage()
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir, newStore.GetRootDir())
+}
+
+func TestNewStorageNotInProject(t *testing.T) {
+	// Create temp directory without .clipm
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Save original directory and change to temp dir
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	// NewStorage should fail
+	_, err = NewStorage()
+	assert.Equal(t, ErrNotInProject, err)
+}
+
+func TestFindProjectRootInParent(t *testing.T) {
+	// Create temp directory structure: parent/.clipm and parent/child
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Resolve symlinks (macOS /var -> /private/var)
+	tmpDir, err = filepath.EvalSymlinks(tmpDir)
+	require.NoError(t, err)
+
+	// Initialize .clipm in parent
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	// Create nested child directory
+	childDir := filepath.Join(tmpDir, "child", "grandchild")
+	require.NoError(t, os.MkdirAll(childDir, 0755))
+
+	// Save original directory and change to child dir
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(childDir))
+	defer os.Chdir(origDir)
+
+	// NewStorage should find the project in parent
+	newStore, err := NewStorage()
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir, newStore.GetRootDir())
+}
+
+func TestLoadStoreCorruptedJSON(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	// Corrupt the tasks.json file
+	tasksPath := filepath.Join(tmpDir, ClipmDir, TasksFile)
+	err = os.WriteFile(tasksPath, []byte("not valid json{"), 0644)
+	require.NoError(t, err)
+
+	// LoadAll should fail
+	_, err = store.LoadAll()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse")
+}
+
+func TestDeleteTaskNotFound(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	// Delete non-existent task
+	err = store.DeleteTask(999999999)
+	assert.Equal(t, ErrTaskNotFound, err)
+}
+
+func TestDeleteTaskWithMultipleTasks(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	// Create multiple tasks
+	now := time.Now()
+	for i := 0; i < 5; i++ {
+		task := &models.Task{
+			ID:      now.UnixMilli() + int64(i),
+			Name:    "Task",
+			Status:  models.StatusTodo,
+			Created: now,
+			Updated: now,
+		}
+		require.NoError(t, store.SaveTask(task))
+	}
+
+	// Delete middle task
+	err = store.DeleteTask(now.UnixMilli() + 2)
+	require.NoError(t, err)
+
+	// Verify 4 tasks remain
+	tasks, err := store.LoadAll()
+	require.NoError(t, err)
+	assert.Len(t, tasks, 4)
+}
+
+func TestLoadTaskNotFound(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	// Load non-existent task
+	_, err = store.LoadTask(999999999)
+	assert.Equal(t, ErrTaskNotFound, err)
+}
+
+func TestGetChildrenEmpty(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	// Get children of non-existent task
+	children, err := store.GetChildren(999999999)
+	require.NoError(t, err)
+	assert.Len(t, children, 0)
+}

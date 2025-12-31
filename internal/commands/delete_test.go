@@ -213,3 +213,28 @@ func TestDeleteCommand_BlockedByUndoneGrandchildren(t *testing.T) {
 	_, err = store.LoadTask(grandparent.ID)
 	require.NoError(t, err)
 }
+
+func TestDeleteCommand_PrettyOutput(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+	task := &models.Task{
+		ID:      now.UnixMilli(),
+		Name:    "Test Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(task))
+
+	// Set pretty flag
+	deletePretty = true
+
+	// Delete with pretty output
+	err = runDelete(nil, []string{fmt.Sprintf("%d", task.ID)})
+	require.NoError(t, err)
+}

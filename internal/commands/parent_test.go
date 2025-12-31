@@ -243,3 +243,36 @@ func TestParentCommand_CircularDependency(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "circular dependency")
 }
+
+func TestParentCommand_PrettyOutput(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+	parent := &models.Task{
+		ID:      now.UnixMilli(),
+		Name:    "Parent Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(parent))
+
+	time.Sleep(2 * time.Millisecond)
+	child := &models.Task{
+		ID:      time.Now().UnixMilli(),
+		Name:    "Child Task",
+		Status:  models.StatusTodo,
+		Created: time.Now(),
+		Updated: time.Now(),
+	}
+	require.NoError(t, store.SaveTask(child))
+
+	parentPretty = true
+
+	err = runParent(nil, []string{fmt.Sprintf("%d", child.ID), fmt.Sprintf("%d", parent.ID)})
+	require.NoError(t, err)
+}

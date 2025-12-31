@@ -108,3 +108,63 @@ func TestUnparentCommand_AlreadyTopLevel(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, updated.Parent)
 }
+
+func TestUnparentCommand_PrettyOutput(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	// Create parent and child
+	now := time.Now()
+	parent := &models.Task{
+		ID:      now.UnixMilli(),
+		Name:    "Parent Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(parent))
+
+	time.Sleep(2 * time.Millisecond)
+	child := &models.Task{
+		ID:      time.Now().UnixMilli(),
+		Name:    "Child Task",
+		Parent:  &parent.ID,
+		Status:  models.StatusTodo,
+		Created: time.Now(),
+		Updated: time.Now(),
+	}
+	require.NoError(t, store.SaveTask(child))
+
+	// Set pretty flag
+	unparentPretty = true
+
+	err = runUnparent(nil, []string{fmt.Sprintf("%d", child.ID)})
+	require.NoError(t, err)
+}
+
+func TestUnparentCommand_AlreadyTopLevelPretty(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+	task := &models.Task{
+		ID:      now.UnixMilli(),
+		Name:    "Top Level Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(task))
+
+	// Set pretty flag
+	unparentPretty = true
+
+	err = runUnparent(nil, []string{fmt.Sprintf("%d", task.ID)})
+	require.NoError(t, err)
+}

@@ -172,3 +172,39 @@ func TestTreeCommand_MultipleRoots(t *testing.T) {
 	err = runTree(nil, []string{})
 	require.NoError(t, err)
 }
+
+func TestTreeCommand_EmptyJSON(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	// Test empty with JSON output
+	treePretty = false
+
+	err := runTree(nil, []string{})
+	require.NoError(t, err)
+}
+
+func TestTreeCommand_JSONOutput(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	// Create a task
+	now := time.Now()
+	task := &models.Task{
+		ID:      now.UnixMilli(),
+		Name:    "Test Task",
+		Status:  models.StatusDone,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(task))
+
+	// Test JSON output
+	treePretty = false
+
+	err = runTree(nil, []string{})
+	require.NoError(t, err)
+}

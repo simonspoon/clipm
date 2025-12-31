@@ -102,3 +102,41 @@ func TestListInvalidStatus(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid status")
 }
+
+func TestListWithStatusFilter(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	// Create tasks with different statuses
+	createTestTask(t, store, "Todo Task 1", models.StatusTodo, nil)
+	createTestTask(t, store, "Todo Task 2", models.StatusTodo, nil)
+	createTestTask(t, store, "Done Task", models.StatusDone, nil)
+
+	// Test filter by todo status - actually run the command
+	listStatus = models.StatusTodo
+	listPretty = false
+
+	err = runList(nil, []string{})
+	require.NoError(t, err)
+}
+
+func TestListPrettyOutput(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	// Create tasks
+	createTestTask(t, store, "Test Task", models.StatusTodo, nil)
+
+	listStatus = ""
+	listPretty = true
+
+	// Should not error (output goes to stdout)
+	err = runList(nil, []string{})
+	require.NoError(t, err)
+}
