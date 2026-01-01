@@ -201,30 +201,147 @@ func (s *Storage) GetChildren(parentID int64) ([]models.Task, error) {
 	return children, nil
 }
 
-// GetNextTask returns the oldest todo task (FIFO)
-func (s *Storage) GetNextTask() (*models.Task, error) {
+// NextResult represents the result of GetNextTask
+type NextResult struct {
+	Task       *models.Task  `json:"task,omitempty"`
+	Candidates []models.Task `json:"candidates,omitempty"`
+}
+
+// GetNextTask returns the next task using depth-first traversal.
+// When in-progress tasks exist: returns todo children or siblings of the deepest in-progress task.
+// When no in-progress tasks: returns root-level todos as candidates.
+func (s *Storage) GetNextTask() (*NextResult, error) {
 	store, err := s.loadStore()
 	if err != nil {
 		return nil, err
 	}
 
-	var todoTasks []models.Task
-	for _, t := range store.Tasks {
-		if t.Status == models.StatusTodo {
-			todoTasks = append(todoTasks, t)
+	deepest := getDeepestInProgress(store.Tasks)
+	if deepest == nil {
+		// No in-progress context - return root-level todos as candidates
+		candidates := getRootTodos(store.Tasks)
+		return &NextResult{Candidates: candidates}, nil
+	}
+
+	// Walk up from deepest, looking for todo children first, then siblings
+	current := deepest
+	for {
+		// First, check for todo children of current task
+		children := getTodoChildren(store.Tasks, current.ID)
+		if len(children) > 0 {
+			return &NextResult{Task: &children[0]}, nil
+		}
+
+		// Then, check for todo siblings
+		siblings := getTodoSiblings(store.Tasks, current.ID)
+		if len(siblings) > 0 {
+			return &NextResult{Task: &siblings[0]}, nil
+		}
+
+		// Move up to parent
+		if current.Parent == nil {
+			break
+		}
+		parent := findTask(store.Tasks, *current.Parent)
+		if parent == nil {
+			break
+		}
+		current = parent
+	}
+	return &NextResult{}, nil
+}
+
+// getDeepestInProgress finds the in-progress task that has no in-progress children
+func getDeepestInProgress(tasks []models.Task) *models.Task {
+	// Build map of tasks that have in-progress children
+	hasInProgressChild := make(map[int64]bool)
+	for _, t := range tasks {
+		if t.Status == models.StatusInProgress && t.Parent != nil {
+			hasInProgressChild[*t.Parent] = true
 		}
 	}
 
-	if len(todoTasks) == 0 {
-		return nil, nil
+	// Find in-progress task with no in-progress children (deepest)
+	var deepest *models.Task
+	for i := range tasks {
+		if tasks[i].Status == models.StatusInProgress && !hasInProgressChild[tasks[i].ID] {
+			if deepest == nil || tasks[i].Created.Before(deepest.Created) {
+				deepest = &tasks[i]
+			}
+		}
+	}
+	return deepest
+}
+
+// getTodoChildren returns todo tasks that are children of the given task, sorted by created time
+func getTodoChildren(tasks []models.Task, parentID int64) []models.Task {
+	var children []models.Task
+	for _, t := range tasks {
+		if t.Status == models.StatusTodo && t.Parent != nil && *t.Parent == parentID {
+			children = append(children, t)
+		}
+	}
+	sort.Slice(children, func(i, j int) bool {
+		return children[i].Created.Before(children[j].Created)
+	})
+	return children
+}
+
+// getTodoSiblings returns todo tasks with the same parent as the given task, sorted by created time
+func getTodoSiblings(tasks []models.Task, taskID int64) []models.Task {
+	// Find the task to get its parent
+	var targetParent *int64
+	for i := range tasks {
+		if tasks[i].ID == taskID {
+			targetParent = tasks[i].Parent
+			break
+		}
+	}
+
+	// Find all todo tasks with the same parent
+	var siblings []models.Task
+	for _, t := range tasks {
+		if t.Status != models.StatusTodo {
+			continue
+		}
+		// Check if same parent (both nil or both point to same ID)
+		sameParent := (targetParent == nil && t.Parent == nil) ||
+			(targetParent != nil && t.Parent != nil && *targetParent == *t.Parent)
+		if sameParent {
+			siblings = append(siblings, t)
+		}
 	}
 
 	// Sort by created time (oldest first)
-	sort.Slice(todoTasks, func(i, j int) bool {
-		return todoTasks[i].Created.Before(todoTasks[j].Created)
+	sort.Slice(siblings, func(i, j int) bool {
+		return siblings[i].Created.Before(siblings[j].Created)
 	})
 
-	return &todoTasks[0], nil
+	return siblings
+}
+
+// getRootTodos returns all todo tasks with no parent, sorted by created time
+func getRootTodos(tasks []models.Task) []models.Task {
+	var roots []models.Task
+	for _, t := range tasks {
+		if t.Status == models.StatusTodo && t.Parent == nil {
+			roots = append(roots, t)
+		}
+	}
+	sort.Slice(roots, func(i, j int) bool {
+		return roots[i].Created.Before(roots[j].Created)
+	})
+	return roots
+}
+
+// findTask finds a task by ID
+func findTask(tasks []models.Task, id int64) *models.Task {
+	for i := range tasks {
+		if tasks[i].ID == id {
+			return &tasks[i]
+		}
+	}
+	return nil
 }
 
 // HasUndoneChildren checks recursively if a task has any descendants that are not done

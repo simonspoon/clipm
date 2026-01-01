@@ -255,10 +255,12 @@ func TestGetNextTask(t *testing.T) {
 	store := NewStorageAt(tmpDir)
 	require.NoError(t, store.Init())
 
-	// No tasks - should return nil
+	// No tasks - should return empty result
 	next, err := store.GetNextTask()
 	require.NoError(t, err)
-	assert.Nil(t, next)
+	require.NotNil(t, next)
+	assert.Nil(t, next.Task)
+	assert.Empty(t, next.Candidates)
 
 	// Create tasks with different creation times
 	baseTime := time.Now()
@@ -281,21 +283,208 @@ func TestGetNextTask(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(task2))
 
-	// Should get oldest task
+	// No in-progress tasks - should return candidates (oldest first)
 	next, err = store.GetNextTask()
 	require.NoError(t, err)
 	require.NotNil(t, next)
-	assert.Equal(t, task1.ID, next.ID)
+	require.Len(t, next.Candidates, 2)
+	assert.Equal(t, task1.ID, next.Candidates[0].ID)
 
 	// Mark first task as in-progress
 	task1.Status = models.StatusInProgress
 	require.NoError(t, store.SaveTask(task1))
 
-	// Should get second task
+	// Should get second task as sibling of in-progress task
 	next, err = store.GetNextTask()
 	require.NoError(t, err)
 	require.NotNil(t, next)
-	assert.Equal(t, task2.ID, next.ID)
+	require.NotNil(t, next.Task)
+	assert.Equal(t, task2.ID, next.Task.ID)
+}
+
+func TestGetNextTask_DepthFirst(t *testing.T) {
+	// Test progressive decomposition scenario:
+	// - Feature A (in-progress) has children A1 (in-progress), A2 (todo), A3 (todo)
+	// - A1 has children A1a (done), A1b (todo), A1c (todo)
+	// Expected: next should return A1b (sibling of deepest in-progress)
+
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	baseTime := time.Now()
+
+	// Create Feature A (in-progress, root level)
+	featureA := &models.Task{
+		ID:      baseTime.UnixMilli(),
+		Name:    "Feature A",
+		Status:  models.StatusInProgress,
+		Created: baseTime,
+		Updated: baseTime,
+	}
+	require.NoError(t, store.SaveTask(featureA))
+
+	// Create A1 (in-progress, child of A)
+	a1 := &models.Task{
+		ID:      baseTime.UnixMilli() + 1,
+		Name:    "A1",
+		Parent:  &featureA.ID,
+		Status:  models.StatusInProgress,
+		Created: baseTime.Add(time.Millisecond),
+		Updated: baseTime.Add(time.Millisecond),
+	}
+	require.NoError(t, store.SaveTask(a1))
+
+	// Create A2 (todo, child of A)
+	a2 := &models.Task{
+		ID:      baseTime.UnixMilli() + 2,
+		Name:    "A2",
+		Parent:  &featureA.ID,
+		Status:  models.StatusTodo,
+		Created: baseTime.Add(2 * time.Millisecond),
+		Updated: baseTime.Add(2 * time.Millisecond),
+	}
+	require.NoError(t, store.SaveTask(a2))
+
+	// Create A1a (done, child of A1)
+	a1a := &models.Task{
+		ID:      baseTime.UnixMilli() + 10,
+		Name:    "A1a",
+		Parent:  &a1.ID,
+		Status:  models.StatusDone,
+		Created: baseTime.Add(10 * time.Millisecond),
+		Updated: baseTime.Add(10 * time.Millisecond),
+	}
+	require.NoError(t, store.SaveTask(a1a))
+
+	// Create A1b (todo, child of A1) - this should be returned
+	a1b := &models.Task{
+		ID:      baseTime.UnixMilli() + 11,
+		Name:    "A1b",
+		Parent:  &a1.ID,
+		Status:  models.StatusTodo,
+		Created: baseTime.Add(11 * time.Millisecond),
+		Updated: baseTime.Add(11 * time.Millisecond),
+	}
+	require.NoError(t, store.SaveTask(a1b))
+
+	// Create A1c (todo, child of A1)
+	a1c := &models.Task{
+		ID:      baseTime.UnixMilli() + 12,
+		Name:    "A1c",
+		Parent:  &a1.ID,
+		Status:  models.StatusTodo,
+		Created: baseTime.Add(12 * time.Millisecond),
+		Updated: baseTime.Add(12 * time.Millisecond),
+	}
+	require.NoError(t, store.SaveTask(a1c))
+
+	// Should return A1b (sibling of deepest in-progress task A1)
+	next, err := store.GetNextTask()
+	require.NoError(t, err)
+	require.NotNil(t, next)
+	require.NotNil(t, next.Task)
+	assert.Equal(t, "A1b", next.Task.Name)
+
+	// Mark A1b as done, should return A1c
+	a1b.Status = models.StatusDone
+	require.NoError(t, store.SaveTask(a1b))
+
+	next, err = store.GetNextTask()
+	require.NoError(t, err)
+	require.NotNil(t, next.Task)
+	assert.Equal(t, "A1c", next.Task.Name)
+
+	// Mark A1c as done, A1 has no more todo children
+	// Should move up and return A2 (sibling of A1)
+	a1c.Status = models.StatusDone
+	require.NoError(t, store.SaveTask(a1c))
+
+	next, err = store.GetNextTask()
+	require.NoError(t, err)
+	require.NotNil(t, next.Task)
+	assert.Equal(t, "A2", next.Task.Name)
+}
+
+func TestGetNextTask_InProgressRootNoTodos(t *testing.T) {
+	// Edge case: in-progress root task with no todo children or siblings
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	now := time.Now()
+
+	// Single in-progress root task, no children
+	task := &models.Task{
+		ID:      now.UnixMilli(),
+		Name:    "Lone Task",
+		Status:  models.StatusInProgress,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(task))
+
+	// Should return empty result (no todos anywhere)
+	next, err := store.GetNextTask()
+	require.NoError(t, err)
+	assert.Nil(t, next.Task)
+	assert.Empty(t, next.Candidates)
+}
+
+func TestGetNextTask_WalksUpToRoot(t *testing.T) {
+	// Test that we walk up and find root-level siblings
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	now := time.Now()
+
+	// Root task A (in-progress)
+	taskA := &models.Task{
+		ID:      now.UnixMilli(),
+		Name:    "Task A",
+		Status:  models.StatusInProgress,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(taskA))
+
+	// Root task B (todo) - sibling of A at root level
+	taskB := &models.Task{
+		ID:      now.UnixMilli() + 1,
+		Name:    "Task B",
+		Status:  models.StatusTodo,
+		Created: now.Add(time.Millisecond),
+		Updated: now.Add(time.Millisecond),
+	}
+	require.NoError(t, store.SaveTask(taskB))
+
+	// Child of A (in-progress, deepest)
+	childA1 := &models.Task{
+		ID:      now.UnixMilli() + 10,
+		Name:    "A1",
+		Parent:  &taskA.ID,
+		Status:  models.StatusInProgress,
+		Created: now.Add(10 * time.Millisecond),
+		Updated: now.Add(10 * time.Millisecond),
+	}
+	require.NoError(t, store.SaveTask(childA1))
+
+	// A1 has no todo children, A has no todo children
+	// Should walk up and find B (root-level sibling of A)
+	next, err := store.GetNextTask()
+	require.NoError(t, err)
+	require.NotNil(t, next.Task)
+	assert.Equal(t, "Task B", next.Task.Name)
 }
 
 func TestHasUndoneChildren(t *testing.T) {

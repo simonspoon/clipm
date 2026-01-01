@@ -73,11 +73,12 @@ func TestNextCommand_ReturnsFIFO(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(task2))
 
-	// Verify GetNextTask returns older task
+	// No in-progress tasks - returns candidates (older task first)
 	next, err := store.GetNextTask()
 	require.NoError(t, err)
 	require.NotNil(t, next)
-	assert.Equal(t, "Older Task", next.Name)
+	require.NotEmpty(t, next.Candidates)
+	assert.Equal(t, "Older Task", next.Candidates[0].Name)
 }
 
 func TestNextCommand_SkipsNonTodoTasks(t *testing.T) {
@@ -121,11 +122,12 @@ func TestNextCommand_SkipsNonTodoTasks(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(todoTask))
 
-	// Should return the todo task
+	// Should return the todo task (sibling of in-progress task)
 	next, err := store.GetNextTask()
 	require.NoError(t, err)
 	require.NotNil(t, next)
-	assert.Equal(t, "Todo Task", next.Name)
+	require.NotNil(t, next.Task)
+	assert.Equal(t, "Todo Task", next.Task.Name)
 }
 
 func TestNextCommand_Pretty(t *testing.T) {
