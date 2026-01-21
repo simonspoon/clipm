@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+
+          # Linux amd64
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/clipm-linux-amd64 ./cmd/clipm
+
+          # Linux arm64
+          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/clipm-linux-arm64 ./cmd/clipm
+
+          # Darwin amd64
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/clipm-darwin-amd64 ./cmd/clipm
+
+          # Darwin arm64
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/clipm-darwin-arm64 ./cmd/clipm
+
+          # Windows amd64
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/clipm-windows-amd64.exe ./cmd/clipm
+
+          # Windows arm64
+          GOOS=windows GOARCH=arm64 go build -ldflags="-s -w" -o dist/clipm-windows-arm64.exe ./cmd/clipm
+
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/clipm-linux-amd64
+            dist/clipm-linux-arm64
+            dist/clipm-darwin-amd64
+            dist/clipm-darwin-arm64
+            dist/clipm-windows-amd64.exe
+            dist/clipm-windows-arm64.exe
+            dist/checksums.txt
+          generate_release_notes: true

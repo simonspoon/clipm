@@ -39,3 +39,33 @@ issues:
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-rules:
+    # Test cleanup - standard Go idiom
+    - path: _test\.go
+      linters:
+        - errcheck
+
+    # Color output - return values intentionally ignored
+    - path: internal/commands/
+      text: "Error return value of .*(Printf|Print|Println)"
+      linters:
+        - errcheck
+    - path: internal/commands/
+      text: "G104.*Errors unhandled"
+      linters:
+        - gosec
+
+    # Standard permissions for CLI data directories
+    - linters:
+        - gosec
+      text: "G301|G306|G304"
+
+    # Style suggestions - not enforced
+    - linters:
+        - gocritic
+      text: "hugeParam|ifElseChain|unnamedResult|octalLiteral"
+
+    # Test helper return value
+    - path: _test\.go
+      linters:
+        - unparam

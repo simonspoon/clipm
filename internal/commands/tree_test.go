@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"clipm/internal/models"
-	"clipm/internal/storage"
+	"github.com/simonspoon/clipm/internal/models"
+	"github.com/simonspoon/clipm/internal/storage"
 	"github.com/stretchr/testify/require"
 )
 

@@ -8,14 +8,16 @@ import (
 	"path/filepath"
 	"sort"
 
-	"clipm/internal/models"
+	"github.com/simonspoon/clipm/internal/models"
 )
 
+// Storage directory and file names.
 const (
 	ClipmDir  = ".clipm"
 	TasksFile = "tasks.json"
 )
 
+// Storage errors.
 var (
 	ErrNotInProject = errors.New("not in a clipm project. Run 'clipm init' first")
 	ErrTaskNotFound = errors.New("task not found")
@@ -23,8 +25,8 @@ var (
 
 // TaskStore is the root structure for the tasks.json file
 type TaskStore struct {
-	Version string         `json:"version"`
-	Tasks   []models.Task  `json:"tasks"`
+	Version string        `json:"version"`
+	Tasks   []models.Task `json:"tasks"`
 }
 
 // Storage handles all file operations for clipm

@@ -1,6 +1,6 @@
 package main
 
-import "clipm/internal/commands"
+import "github.com/simonspoon/clipm/internal/commands"
 
 func main() {
 	commands.Execute()

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"testing"
 
-	"clipm/internal/models"
-	"clipm/internal/storage"
+	"github.com/simonspoon/clipm/internal/models"
+	"github.com/simonspoon/clipm/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

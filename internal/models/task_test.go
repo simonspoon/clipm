@@ -15,7 +15,7 @@ func TestIsValidStatus(t *testing.T) {
 	// Invalid statuses
 	assert.False(t, IsValidStatus(""))
 	assert.False(t, IsValidStatus("invalid"))
-	assert.False(t, IsValidStatus("DONE"))       // case sensitive
-	assert.False(t, IsValidStatus("TODO"))       // case sensitive
+	assert.False(t, IsValidStatus("DONE"))        // case sensitive
+	assert.False(t, IsValidStatus("TODO"))        // case sensitive
 	assert.False(t, IsValidStatus("in_progress")) // wrong format
 }

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"clipm/internal/models"
+	"github.com/simonspoon/clipm/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

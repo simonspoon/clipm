@@ -1,4 +1,4 @@
-module clipm
+module github.com/simonspoon/clipm
 
 go 1.25.1
 

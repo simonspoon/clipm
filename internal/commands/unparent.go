@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"clipm/internal/storage"
 	"github.com/fatih/color"
+	"github.com/simonspoon/clipm/internal/storage"
 	"github.com/spf13/cobra"
 )
 
