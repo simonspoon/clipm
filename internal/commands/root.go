@@ -8,8 +8,9 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "clipm",
-	Short: "CLI Project Manager - A lightweight JSON-based task queue for LLMs",
+	Use:     "clipm",
+	Version: "0.1.0",
+	Short:   "CLI Project Manager - A lightweight JSON-based task queue for LLMs",
 	Long: `clipm is a CLI-based task manager designed for use by LLMs and agents.
 It uses a single JSON file for storage and outputs JSON by default for easy parsing.`,
 }
@@ -35,4 +36,5 @@ func init() {
 	rootCmd.AddCommand(treeCmd)
 	rootCmd.AddCommand(nextCmd)
 	rootCmd.AddCommand(pruneCmd)
+	rootCmd.AddCommand(watchCmd)
 }

@@ -39,6 +39,9 @@ clipm status <task-id> done
 
 # Get next task (depth-first traversal)
 clipm next
+
+# Watch for changes
+clipm watch --pretty
 ```
 
 ## Command Reference
@@ -56,6 +59,7 @@ clipm next
 | `unparent <id>` | Remove a task's parent |
 | `delete <id>` | Delete a task |
 | `prune` | Remove all completed tasks |
+| `watch` | Watch tasks for live updates |
 
 All commands output JSON by default. Use `--pretty` for human-readable output with colors.
 
@@ -86,6 +90,30 @@ The `next` command uses depth-first traversal to support progressive decompositi
 - Walks up the hierarchy when no todos exist at the current level
 
 This allows agents to break down large tasks into smaller subtasks just-in-time.
+
+### Watch Mode
+
+The `watch` command monitors tasks.json for changes and outputs updates in real-time:
+
+```bash
+# JSON mode (default) - outputs newline-delimited events
+clipm watch
+
+# Pretty mode - clears screen and redraws task list
+clipm watch --pretty
+
+# Filter by status
+clipm watch --status in-progress --pretty
+
+# Custom polling interval
+clipm watch --interval 1s
+```
+
+JSON mode outputs events:
+- `snapshot` - Initial task list on startup
+- `added` - New task created
+- `updated` - Task modified
+- `deleted` - Task removed
 
 ## Storage
 
