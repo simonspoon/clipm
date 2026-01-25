@@ -59,6 +59,7 @@ func printTaskDetails(task *models.Task) {
 	cyan := color.New(color.FgCyan, color.Bold)
 	white := color.New(color.FgWhite)
 	gray := color.New(color.FgHiBlack)
+	yellow := color.New(color.FgYellow)
 
 	separator := strings.Repeat("-", 60)
 	cyan.Println(separator)
@@ -80,6 +81,23 @@ func printTaskDetails(task *models.Task) {
 		white.Println("Parent:      none")
 	}
 
+	if task.Owner != nil {
+		white.Printf("Owner:       %s\n", *task.Owner)
+	}
+
+	if len(task.BlockedBy) > 0 {
+		white.Printf("Blocked by:  %v\n", task.BlockedBy)
+	}
+
 	gray.Printf("Created:     %s\n", task.Created.Format("2006-01-02 15:04:05"))
 	gray.Printf("Updated:     %s\n", task.Updated.Format("2006-01-02 15:04:05"))
+
+	if len(task.Notes) > 0 {
+		fmt.Println()
+		yellow.Println("Notes:")
+		for _, note := range task.Notes {
+			gray.Printf("  [%s] ", note.Timestamp.Format("2006-01-02 15:04"))
+			white.Printf("%s\n", note.Content)
+		}
+	}
 }

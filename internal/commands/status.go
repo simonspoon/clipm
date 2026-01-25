@@ -75,6 +75,13 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Auto-remove from all BlockedBy lists when marked done
+	if newStatus == models.StatusDone {
+		if err := store.RemoveFromAllBlockedBy(id); err != nil {
+			return err
+		}
+	}
+
 	if statusPretty {
 		green := color.New(color.FgGreen)
 		green.Printf("Updated task %d status: %s\n", task.ID, newStatus)

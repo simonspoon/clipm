@@ -60,8 +60,24 @@ clipm watch --pretty
 | `delete <id>` | Delete a task |
 | `prune` | Remove all completed tasks |
 | `watch` | Watch tasks for live updates |
+| `block <blocker> <blocked>` | Add dependency (blocked waits for blocker) |
+| `unblock <blocker> <blocked>` | Remove dependency |
+| `note <id> "message"` | Add a timestamped note to a task |
+| `claim <id> <agent>` | Claim task ownership |
+| `unclaim <id>` | Release task ownership |
 
 All commands output JSON by default. Use `--pretty` for human-readable output with colors.
+
+### Filtering
+
+The `list` command supports filtering:
+- `--status <status>` - Filter by status
+- `--owner <name>` - Filter by owner
+- `--unclaimed` - Show only unowned tasks
+- `--blocked` / `--unblocked` - Filter by blocked state
+
+The `next` command supports:
+- `--unclaimed` - Skip tasks that have an owner
 
 ## Usage with AI Agents
 
@@ -75,11 +91,36 @@ clipm next
 # Returns JSON like:
 # {"task": {"id": 1737500000000, "name": "Implement feature X", ...}}
 
-# Agent marks task in progress
+# Agent claims and starts task
+clipm claim 1737500000000 agent-1
 clipm status 1737500000000 in-progress
+
+# Agent adds progress notes
+clipm note 1737500000000 "Started implementation"
+clipm note 1737500000000 "Found edge case, handling it"
 
 # Agent completes work, marks done
 clipm status 1737500000000 done
+```
+
+### Multi-Agent Coordination
+
+clipm supports multiple agents working on the same task queue:
+
+```bash
+# Agent claims an unclaimed task
+clipm next --unclaimed
+clipm claim <id> agent-1
+
+# Other agents skip claimed tasks
+clipm next --unclaimed  # won't return agent-1's task
+
+# Set up task dependencies
+clipm block <prereq-id> <dependent-id>
+# dependent task won't appear in `next` until prereq is done
+
+# When prereq completes, dependent is auto-unblocked
+clipm status <prereq-id> done
 ```
 
 ### Progressive Decomposition

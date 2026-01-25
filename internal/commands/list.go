@@ -12,50 +12,50 @@ import (
 )
 
 var (
-	listStatus string
-	listPretty bool
+	listStatus    string
+	listPretty    bool
+	listOwner     string
+	listUnclaimed bool
+	listBlocked   bool
+	listUnblocked bool
 )
 
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List tasks",
-	Long:  `List tasks with optional filtering by status.`,
+	Long:  `List tasks with optional filtering by status, owner, or blocked state.`,
 	RunE:  runList,
 }
 
 func init() {
 	listCmd.Flags().StringVarP(&listStatus, "status", "s", "", "Filter by status (todo|in-progress|done)")
 	listCmd.Flags().BoolVar(&listPretty, "pretty", false, "Pretty print output")
+	listCmd.Flags().StringVar(&listOwner, "owner", "", "Filter to tasks owned by this agent")
+	listCmd.Flags().BoolVar(&listUnclaimed, "unclaimed", false, "Filter to tasks with no owner")
+	listCmd.Flags().BoolVar(&listBlocked, "blocked", false, "Show only blocked tasks")
+	listCmd.Flags().BoolVar(&listUnblocked, "unblocked", false, "Show only unblocked tasks")
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	// Load storage
+	if err := validateListFlags(); err != nil {
+		return err
+	}
+
 	store, err := storage.NewStorage()
 	if err != nil {
 		return err
 	}
 
-	// Load all tasks
 	tasks, err := store.LoadAll()
 	if err != nil {
 		return err
 	}
 
-	// Filter by status if specified
-	if listStatus != "" {
-		if !models.IsValidStatus(listStatus) {
-			return fmt.Errorf("invalid status %q. Must be: todo, in-progress, done", listStatus)
-		}
-		var filtered []models.Task
-		for _, t := range tasks {
-			if t.Status == listStatus {
-				filtered = append(filtered, t)
-			}
-		}
-		tasks = filtered
+	tasks, err = applyListFilters(tasks, store)
+	if err != nil {
+		return err
 	}
 
-	// Sort by created time (oldest first)
 	sort.Slice(tasks, func(i, j int) bool {
 		return tasks[i].Created.Before(tasks[j].Created)
 	})
@@ -70,6 +70,90 @@ func runList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func validateListFlags() error {
+	if listOwner != "" && listUnclaimed {
+		return fmt.Errorf("--owner and --unclaimed are mutually exclusive")
+	}
+	if listBlocked && listUnblocked {
+		return fmt.Errorf("--blocked and --unblocked are mutually exclusive")
+	}
+	if listStatus != "" && !models.IsValidStatus(listStatus) {
+		return fmt.Errorf("invalid status %q. Must be: todo, in-progress, done", listStatus)
+	}
+	return nil
+}
+
+func applyListFilters(tasks []models.Task, store *storage.Storage) ([]models.Task, error) {
+	if listStatus != "" {
+		tasks = filterTasksByStatus(tasks, listStatus)
+	}
+	if listOwner != "" {
+		tasks = filterByOwner(tasks, listOwner)
+	}
+	if listUnclaimed {
+		tasks = filterUnclaimed(tasks)
+	}
+	if listBlocked {
+		var err error
+		tasks, err = filterBlocked(tasks, store, true)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if listUnblocked {
+		var err error
+		tasks, err = filterBlocked(tasks, store, false)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return tasks, nil
+}
+
+func filterTasksByStatus(tasks []models.Task, status string) []models.Task {
+	var filtered []models.Task
+	for i := range tasks {
+		if tasks[i].Status == status {
+			filtered = append(filtered, tasks[i])
+		}
+	}
+	return filtered
+}
+
+func filterByOwner(tasks []models.Task, owner string) []models.Task {
+	var filtered []models.Task
+	for i := range tasks {
+		if tasks[i].Owner != nil && *tasks[i].Owner == owner {
+			filtered = append(filtered, tasks[i])
+		}
+	}
+	return filtered
+}
+
+func filterUnclaimed(tasks []models.Task) []models.Task {
+	var filtered []models.Task
+	for i := range tasks {
+		if tasks[i].Owner == nil {
+			filtered = append(filtered, tasks[i])
+		}
+	}
+	return filtered
+}
+
+func filterBlocked(tasks []models.Task, store *storage.Storage, wantBlocked bool) ([]models.Task, error) {
+	var filtered []models.Task
+	for i := range tasks {
+		blocked, err := store.IsBlocked(&tasks[i])
+		if err != nil {
+			return nil, err
+		}
+		if blocked == wantBlocked {
+			filtered = append(filtered, tasks[i])
+		}
+	}
+	return filtered, nil
+}
+
 func printTasksPretty(tasks []models.Task) {
 	if len(tasks) == 0 {
 		fmt.Println("No tasks found.")
@@ -78,8 +162,8 @@ func printTasksPretty(tasks []models.Task) {
 
 	// Group by status
 	grouped := make(map[string][]models.Task)
-	for _, t := range tasks {
-		grouped[t.Status] = append(grouped[t.Status], t)
+	for i := range tasks {
+		grouped[tasks[i].Status] = append(grouped[tasks[i].Status], tasks[i])
 	}
 
 	// Status order
@@ -105,8 +189,8 @@ func printTasksPretty(tasks []models.Task) {
 		statusColor := statusColors[status]
 		statusColor.Printf("\n%s (%d)\n", status, len(group))
 
-		for _, t := range group {
-			fmt.Printf("  %d  %s\n", t.ID, t.Name)
+		for i := range group {
+			fmt.Printf("  %d  %s\n", group[i].ID, group[i].Name)
 		}
 	}
 }

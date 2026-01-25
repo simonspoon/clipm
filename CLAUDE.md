@@ -49,9 +49,16 @@ The `Storage` type walks up directories to find `.clipm/` (like git finds `.git/
 
 ### Task Model
 
-Tasks have: ID (Unix milliseconds), Name, Description, Parent (nullable pointer), Status, Created, Updated.
-
-Valid statuses: `todo`, `in-progress`, `done`
+Tasks have:
+- `ID` - Unix milliseconds timestamp
+- `Name` - Task title
+- `Description` - Optional details
+- `Parent` - Nullable pointer to parent task ID
+- `Status` - `todo`, `in-progress`, or `done`
+- `BlockedBy` - List of task IDs that must complete first
+- `Owner` - Optional agent name claiming the task
+- `Notes` - Append-only list of timestamped observations
+- `Created`, `Updated` - Timestamps
 
 ### Output Convention
 
@@ -63,7 +70,28 @@ All commands default to JSON output. Use `--pretty` flag for human-readable outp
   - Finds deepest in-progress task, returns its todo children (then siblings)
   - Walks up hierarchy when no todos at current level
   - Returns `{"task": ...}` when context exists, `{"candidates": [...]}` when no in-progress tasks
+  - Always skips blocked tasks; use `--unclaimed` to also skip owned tasks
 - Tasks cannot be marked `done` if they have undone children
 - Cannot add children to `done` tasks
 - `delete` orphans children (sets their Parent to nil)
 - `prune` removes all `done` tasks
+
+### Dependencies
+
+- `block <blocker> <blocked>` adds blocker to blocked's BlockedBy list
+- Cycle detection prevents A→B→A dependency chains
+- Cannot block on completed tasks
+- When a task is marked `done`, it's auto-removed from all BlockedBy lists
+- `next` skips tasks with incomplete blockers
+
+### Ownership
+
+- `claim <id> <agent>` sets Owner; fails if already owned (use `--force` to override)
+- `unclaim <id>` clears Owner
+- `list --owner <name>` filters by owner; `--unclaimed` shows unowned tasks
+- `next --unclaimed` skips owned tasks
+
+### Notes
+
+- `note <id> "message"` appends a timestamped note
+- Notes are append-only and displayed in `show --pretty`

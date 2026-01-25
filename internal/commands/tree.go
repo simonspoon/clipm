@@ -60,28 +60,28 @@ func runTree(cmd *cobra.Command, args []string) error {
 
 	// Build task map for easy lookup
 	taskMap := make(map[int64]models.Task)
-	for _, task := range tasks {
-		taskMap[task.ID] = task
+	for i := range tasks {
+		taskMap[tasks[i].ID] = tasks[i]
 	}
 
 	// Find root tasks (tasks with no parent)
 	var roots []models.Task
-	for _, task := range tasks {
-		if task.Parent == nil {
-			roots = append(roots, task)
+	for i := range tasks {
+		if tasks[i].Parent == nil {
+			roots = append(roots, tasks[i])
 		}
 	}
 
 	// Print tree for each root
-	for i, root := range roots {
+	for i := range roots {
 		isLast := i == len(roots)-1
-		printTaskTree(root, taskMap, "", isLast)
+		printTaskTree(&roots[i], taskMap, "", isLast)
 	}
 
 	return nil
 }
 
-func printTaskTree(task models.Task, taskMap map[int64]models.Task, prefix string, isLast bool) {
+func printTaskTree(task *models.Task, taskMap map[int64]models.Task, prefix string, isLast bool) {
 	boldWhite := color.New(color.Bold, color.FgWhite)
 	gray := color.New(color.FgHiBlack)
 	statusColor := getStatusColor(task.Status)
@@ -105,7 +105,8 @@ func printTaskTree(task models.Task, taskMap map[int64]models.Task, prefix strin
 
 	// Find children
 	var children []models.Task
-	for _, t := range taskMap {
+	for id := range taskMap {
+		t := taskMap[id]
 		if t.Parent != nil && *t.Parent == task.ID {
 			children = append(children, t)
 		}
@@ -117,7 +118,7 @@ func printTaskTree(task models.Task, taskMap map[int64]models.Task, prefix strin
 	})
 
 	// Print children recursively
-	for i, child := range children {
+	for i := range children {
 		childIsLast := i == len(children)-1
 		var childPrefix string
 		if prefix == "" {
@@ -127,7 +128,7 @@ func printTaskTree(task models.Task, taskMap map[int64]models.Task, prefix strin
 		} else {
 			childPrefix = prefix + "│  "
 		}
-		printTaskTree(child, taskMap, childPrefix, childIsLast)
+		printTaskTree(&children[i], taskMap, childPrefix, childIsLast)
 	}
 }
 

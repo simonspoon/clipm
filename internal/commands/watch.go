@@ -104,9 +104,9 @@ func runWatch(cmd *cobra.Command, args []string) error {
 
 func filterByStatus(tasks []models.Task, status string) []models.Task {
 	var filtered []models.Task
-	for _, t := range tasks {
-		if t.Status == status {
-			filtered = append(filtered, t)
+	for i := range tasks {
+		if tasks[i].Status == status {
+			filtered = append(filtered, tasks[i])
 		}
 	}
 	return filtered
@@ -114,14 +114,15 @@ func filterByStatus(tasks []models.Task, status string) []models.Task {
 
 func toTaskMap(tasks []models.Task) map[int64]models.Task {
 	m := make(map[int64]models.Task)
-	for _, t := range tasks {
-		m[t.ID] = t
+	for i := range tasks {
+		m[tasks[i].ID] = tasks[i]
 	}
 	return m
 }
 
 func detectChanges(prev, curr map[int64]models.Task) (added, updated, deleted []int64) {
-	for id, task := range curr {
+	for id := range curr {
+		task := curr[id]
 		if _, exists := prev[id]; !exists {
 			added = append(added, id)
 		} else if !prev[id].Updated.Equal(task.Updated) {
@@ -202,8 +203,8 @@ func clearAndRender(tasks []models.Task) {
 
 	// Group by status
 	grouped := make(map[string][]models.Task)
-	for _, t := range tasks {
-		grouped[t.Status] = append(grouped[t.Status], t)
+	for i := range tasks {
+		grouped[tasks[i].Status] = append(grouped[tasks[i].Status], tasks[i])
 	}
 
 	// Status order
@@ -229,16 +230,16 @@ func clearAndRender(tasks []models.Task) {
 		statusColor := statusColors[status]
 		statusColor.Printf("\n%s (%d)\n", status, len(group))
 
-		for _, t := range group {
-			fmt.Printf("  %d  %s\n", t.ID, t.Name)
+		for i := range group {
+			fmt.Printf("  %d  %s\n", group[i].ID, group[i].Name)
 		}
 	}
 }
 
 func countByStatus(tasks []models.Task, status string) int {
 	count := 0
-	for _, t := range tasks {
-		if t.Status == status {
+	for i := range tasks {
+		if tasks[i].Status == status {
 			count++
 		}
 	}

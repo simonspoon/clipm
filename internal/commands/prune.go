@@ -43,13 +43,13 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 	// Find tasks that can be pruned (done and no undone children)
 	var toPrune []int64
-	for _, task := range tasks {
-		if task.Status != models.StatusDone {
+	for i := range tasks {
+		if tasks[i].Status != models.StatusDone {
 			continue
 		}
 
 		// Check for undone children
-		hasUndone, err := store.HasUndoneChildren(task.ID)
+		hasUndone, err := store.HasUndoneChildren(tasks[i].ID)
 		if err != nil {
 			return err
 		}
@@ -57,7 +57,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		toPrune = append(toPrune, task.ID)
+		toPrune = append(toPrune, tasks[i].ID)
 	}
 
 	if len(toPrune) == 0 {

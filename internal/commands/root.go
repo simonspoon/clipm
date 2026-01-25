@@ -37,4 +37,9 @@ func init() {
 	rootCmd.AddCommand(nextCmd)
 	rootCmd.AddCommand(pruneCmd)
 	rootCmd.AddCommand(watchCmd)
+	rootCmd.AddCommand(blockCmd)
+	rootCmd.AddCommand(unblockCmd)
+	rootCmd.AddCommand(noteCmd)
+	rootCmd.AddCommand(claimCmd)
+	rootCmd.AddCommand(unclaimCmd)
 }

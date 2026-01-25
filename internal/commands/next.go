@@ -9,7 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var nextPretty bool
+var (
+	nextPretty    bool
+	nextUnclaimed bool
+)
 
 var nextCmd = &cobra.Command{
 	Use:   "next",
@@ -17,12 +20,15 @@ var nextCmd = &cobra.Command{
 	Long: `Returns the next task using depth-first traversal.
 
 When in-progress tasks exist: returns todo children (then siblings) of the deepest in-progress task, walking up the hierarchy as needed.
-When no in-progress tasks: returns a list of root-level todo candidates.`,
+When no in-progress tasks: returns a list of root-level todo candidates.
+
+Blocked tasks are always skipped. Use --unclaimed to also skip tasks that have an owner.`,
 	RunE: runNext,
 }
 
 func init() {
 	nextCmd.Flags().BoolVar(&nextPretty, "pretty", false, "Pretty print output")
+	nextCmd.Flags().BoolVar(&nextUnclaimed, "unclaimed", false, "Skip tasks that have an owner")
 }
 
 func runNext(cmd *cobra.Command, args []string) error {
@@ -33,7 +39,7 @@ func runNext(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get next task
-	result, err := store.GetNextTask()
+	result, err := store.GetNextTaskFiltered(nextUnclaimed)
 	if err != nil {
 		return err
 	}
@@ -58,8 +64,8 @@ func runNext(cmd *cobra.Command, args []string) error {
 		if nextPretty {
 			yellow := color.New(color.FgYellow)
 			yellow.Println("No task in progress. Available candidates:")
-			for i, t := range result.Candidates {
-				fmt.Printf("  %d. %d - %s\n", i+1, t.ID, t.Name)
+			for i := range result.Candidates {
+				fmt.Printf("  %d. %d - %s\n", i+1, result.Candidates[i].ID, result.Candidates[i].Name)
 			}
 		} else {
 			out, _ := json.Marshal(result)

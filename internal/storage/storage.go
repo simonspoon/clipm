@@ -148,12 +148,12 @@ func (s *Storage) DeleteTask(id int64) error {
 
 	newTasks := make([]models.Task, 0, len(store.Tasks))
 	found := false
-	for _, t := range store.Tasks {
-		if t.ID == id {
+	for i := range store.Tasks {
+		if store.Tasks[i].ID == id {
 			found = true
 			continue
 		}
-		newTasks = append(newTasks, t)
+		newTasks = append(newTasks, store.Tasks[i])
 	}
 
 	if !found {
@@ -177,9 +177,9 @@ func (s *Storage) DeleteTasks(ids []int64) error {
 	}
 
 	newTasks := make([]models.Task, 0, len(store.Tasks))
-	for _, t := range store.Tasks {
-		if !idSet[t.ID] {
-			newTasks = append(newTasks, t)
+	for i := range store.Tasks {
+		if !idSet[store.Tasks[i].ID] {
+			newTasks = append(newTasks, store.Tasks[i])
 		}
 	}
 
@@ -195,9 +195,9 @@ func (s *Storage) GetChildren(parentID int64) ([]models.Task, error) {
 	}
 
 	var children []models.Task
-	for _, t := range store.Tasks {
-		if t.Parent != nil && *t.Parent == parentID {
-			children = append(children, t)
+	for i := range store.Tasks {
+		if store.Tasks[i].Parent != nil && *store.Tasks[i].Parent == parentID {
+			children = append(children, store.Tasks[i])
 		}
 	}
 	return children, nil
@@ -212,7 +212,14 @@ type NextResult struct {
 // GetNextTask returns the next task using depth-first traversal.
 // When in-progress tasks exist: returns todo children or siblings of the deepest in-progress task.
 // When no in-progress tasks: returns root-level todos as candidates.
+// Blocked tasks are always skipped.
 func (s *Storage) GetNextTask() (*NextResult, error) {
+	return s.GetNextTaskFiltered(false)
+}
+
+// GetNextTaskFiltered returns the next task with optional ownership filter.
+// When unclaimedOnly is true, tasks with an owner are skipped.
+func (s *Storage) GetNextTaskFiltered(unclaimedOnly bool) (*NextResult, error) {
 	store, err := s.loadStore()
 	if err != nil {
 		return nil, err
@@ -221,7 +228,10 @@ func (s *Storage) GetNextTask() (*NextResult, error) {
 	deepest := getDeepestInProgress(store.Tasks)
 	if deepest == nil {
 		// No in-progress context - return root-level todos as candidates
-		candidates := getRootTodos(store.Tasks)
+		candidates := getRootTodos(store.Tasks, true)
+		if unclaimedOnly {
+			candidates = filterUnclaimed(candidates)
+		}
 		return &NextResult{Candidates: candidates}, nil
 	}
 
@@ -229,13 +239,19 @@ func (s *Storage) GetNextTask() (*NextResult, error) {
 	current := deepest
 	for {
 		// First, check for todo children of current task
-		children := getTodoChildren(store.Tasks, current.ID)
+		children := getTodoChildren(store.Tasks, current.ID, true)
+		if unclaimedOnly {
+			children = filterUnclaimed(children)
+		}
 		if len(children) > 0 {
 			return &NextResult{Task: &children[0]}, nil
 		}
 
 		// Then, check for todo siblings
-		siblings := getTodoSiblings(store.Tasks, current.ID)
+		siblings := getTodoSiblings(store.Tasks, current.ID, true)
+		if unclaimedOnly {
+			siblings = filterUnclaimed(siblings)
+		}
 		if len(siblings) > 0 {
 			return &NextResult{Task: &siblings[0]}, nil
 		}
@@ -253,13 +269,24 @@ func (s *Storage) GetNextTask() (*NextResult, error) {
 	return &NextResult{}, nil
 }
 
+// filterUnclaimed removes tasks that have an owner
+func filterUnclaimed(tasks []models.Task) []models.Task {
+	var result []models.Task
+	for i := range tasks {
+		if tasks[i].Owner == nil {
+			result = append(result, tasks[i])
+		}
+	}
+	return result
+}
+
 // getDeepestInProgress finds the in-progress task that has no in-progress children
 func getDeepestInProgress(tasks []models.Task) *models.Task {
 	// Build map of tasks that have in-progress children
 	hasInProgressChild := make(map[int64]bool)
-	for _, t := range tasks {
-		if t.Status == models.StatusInProgress && t.Parent != nil {
-			hasInProgressChild[*t.Parent] = true
+	for i := range tasks {
+		if tasks[i].Status == models.StatusInProgress && tasks[i].Parent != nil {
+			hasInProgressChild[*tasks[i].Parent] = true
 		}
 	}
 
@@ -276,11 +303,14 @@ func getDeepestInProgress(tasks []models.Task) *models.Task {
 }
 
 // getTodoChildren returns todo tasks that are children of the given task, sorted by created time
-func getTodoChildren(tasks []models.Task, parentID int64) []models.Task {
+func getTodoChildren(tasks []models.Task, parentID int64, skipBlocked bool) []models.Task {
 	var children []models.Task
-	for _, t := range tasks {
-		if t.Status == models.StatusTodo && t.Parent != nil && *t.Parent == parentID {
-			children = append(children, t)
+	for i := range tasks {
+		if tasks[i].Status == models.StatusTodo && tasks[i].Parent != nil && *tasks[i].Parent == parentID {
+			if skipBlocked && isTaskBlocked(&tasks[i], tasks) {
+				continue
+			}
+			children = append(children, tasks[i])
 		}
 	}
 	sort.Slice(children, func(i, j int) bool {
@@ -290,7 +320,7 @@ func getTodoChildren(tasks []models.Task, parentID int64) []models.Task {
 }
 
 // getTodoSiblings returns todo tasks with the same parent as the given task, sorted by created time
-func getTodoSiblings(tasks []models.Task, taskID int64) []models.Task {
+func getTodoSiblings(tasks []models.Task, taskID int64, skipBlocked bool) []models.Task {
 	// Find the task to get its parent
 	var targetParent *int64
 	for i := range tasks {
@@ -302,15 +332,18 @@ func getTodoSiblings(tasks []models.Task, taskID int64) []models.Task {
 
 	// Find all todo tasks with the same parent
 	var siblings []models.Task
-	for _, t := range tasks {
-		if t.Status != models.StatusTodo {
+	for i := range tasks {
+		if tasks[i].Status != models.StatusTodo {
+			continue
+		}
+		if skipBlocked && isTaskBlocked(&tasks[i], tasks) {
 			continue
 		}
 		// Check if same parent (both nil or both point to same ID)
-		sameParent := (targetParent == nil && t.Parent == nil) ||
-			(targetParent != nil && t.Parent != nil && *targetParent == *t.Parent)
+		sameParent := (targetParent == nil && tasks[i].Parent == nil) ||
+			(targetParent != nil && tasks[i].Parent != nil && *targetParent == *tasks[i].Parent)
 		if sameParent {
-			siblings = append(siblings, t)
+			siblings = append(siblings, tasks[i])
 		}
 	}
 
@@ -323,17 +356,34 @@ func getTodoSiblings(tasks []models.Task, taskID int64) []models.Task {
 }
 
 // getRootTodos returns all todo tasks with no parent, sorted by created time
-func getRootTodos(tasks []models.Task) []models.Task {
+func getRootTodos(tasks []models.Task, skipBlocked bool) []models.Task {
 	var roots []models.Task
-	for _, t := range tasks {
-		if t.Status == models.StatusTodo && t.Parent == nil {
-			roots = append(roots, t)
+	for i := range tasks {
+		if tasks[i].Status == models.StatusTodo && tasks[i].Parent == nil {
+			if skipBlocked && isTaskBlocked(&tasks[i], tasks) {
+				continue
+			}
+			roots = append(roots, tasks[i])
 		}
 	}
 	sort.Slice(roots, func(i, j int) bool {
 		return roots[i].Created.Before(roots[j].Created)
 	})
 	return roots
+}
+
+// isTaskBlocked checks if any task in BlockedBy is not done
+func isTaskBlocked(task *models.Task, allTasks []models.Task) bool {
+	if len(task.BlockedBy) == 0 {
+		return false
+	}
+	for _, blockerID := range task.BlockedBy {
+		blocker := findTask(allTasks, blockerID)
+		if blocker != nil && blocker.Status != models.StatusDone {
+			return true
+		}
+	}
+	return false
 }
 
 // findTask finds a task by ID
@@ -353,12 +403,12 @@ func (s *Storage) HasUndoneChildren(parentID int64) (bool, error) {
 		return false, err
 	}
 
-	for _, child := range children {
-		if child.Status != models.StatusDone {
+	for i := range children {
+		if children[i].Status != models.StatusDone {
 			return true, nil
 		}
 		// Check grandchildren recursively
-		hasUndone, err := s.HasUndoneChildren(child.ID)
+		hasUndone, err := s.HasUndoneChildren(children[i].ID)
 		if err != nil {
 			return false, err
 		}
@@ -424,4 +474,88 @@ func (s *Storage) saveStore(store *TaskStore) error {
 // GetRootDir returns the project root directory
 func (s *Storage) GetRootDir() string {
 	return s.rootDir
+}
+
+// IsBlocked returns true if any task in BlockedBy is not done
+func (s *Storage) IsBlocked(task *models.Task) (bool, error) {
+	if len(task.BlockedBy) == 0 {
+		return false, nil
+	}
+
+	store, err := s.loadStore()
+	if err != nil {
+		return false, err
+	}
+
+	for _, blockerID := range task.BlockedBy {
+		blocker := findTask(store.Tasks, blockerID)
+		if blocker != nil && blocker.Status != models.StatusDone {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// WouldCreateCycle checks if adding blockerID to blockedID's BlockedBy would create a cycle
+func (s *Storage) WouldCreateCycle(blockerID, blockedID int64) (bool, error) {
+	store, err := s.loadStore()
+	if err != nil {
+		return false, err
+	}
+
+	// BFS from blockerID following BlockedBy chains
+	// If we reach blockedID, adding this dependency would create a cycle
+	visited := make(map[int64]bool)
+	queue := []int64{blockerID}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if visited[current] {
+			continue
+		}
+		visited[current] = true
+
+		task := findTask(store.Tasks, current)
+		if task == nil {
+			continue
+		}
+
+		for _, depID := range task.BlockedBy {
+			if depID == blockedID {
+				return true, nil
+			}
+			if !visited[depID] {
+				queue = append(queue, depID)
+			}
+		}
+	}
+	return false, nil
+}
+
+// RemoveFromAllBlockedBy removes taskID from all tasks' BlockedBy lists
+func (s *Storage) RemoveFromAllBlockedBy(taskID int64) error {
+	store, err := s.loadStore()
+	if err != nil {
+		return err
+	}
+
+	modified := false
+	for i := range store.Tasks {
+		newBlockedBy := make([]int64, 0, len(store.Tasks[i].BlockedBy))
+		for _, id := range store.Tasks[i].BlockedBy {
+			if id != taskID {
+				newBlockedBy = append(newBlockedBy, id)
+			} else {
+				modified = true
+			}
+		}
+		store.Tasks[i].BlockedBy = newBlockedBy
+	}
+
+	if modified {
+		return s.saveStore(store)
+	}
+	return nil
 }
