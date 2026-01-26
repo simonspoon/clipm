@@ -40,7 +40,7 @@ func TestAddCommand(t *testing.T) {
 
 	// Reset flags
 	addDescription = ""
-	addParent = 0
+	addParent = ""
 	addPretty = false
 
 	// Test basic add
@@ -68,7 +68,7 @@ func TestAddCommandWithDescription(t *testing.T) {
 
 	// Set flags
 	addDescription = "Test description"
-	addParent = 0
+	addParent = ""
 	addPretty = false
 
 	// Test add with description
@@ -94,7 +94,7 @@ func TestAddCommandWithParent(t *testing.T) {
 
 	// Create parent task
 	addDescription = ""
-	addParent = 0
+	addParent = ""
 	addPretty = false
 
 	err := runAdd(nil, []string{"Parent Task"})
@@ -121,9 +121,9 @@ func TestAddCommandWithParent(t *testing.T) {
 
 	// Find child task
 	var child *models.Task
-	for _, t := range tasks {
-		if t.Name == "Child Task" {
-			child = &t
+	for _, task := range tasks {
+		if task.Name == "Child Task" {
+			child = &task
 			break
 		}
 	}
@@ -138,7 +138,7 @@ func TestAddCommandNonExistentParent(t *testing.T) {
 	defer cleanup()
 
 	// Set non-existent parent
-	addParent = 999999999999
+	addParent = "zzzz"
 	addDescription = ""
 	addPretty = false
 
@@ -162,7 +162,7 @@ func TestAddCommandNotInProject(t *testing.T) {
 
 	// Reset flags
 	addDescription = ""
-	addParent = 0
+	addParent = ""
 	addPretty = false
 
 	// Test add should fail
@@ -175,7 +175,7 @@ func TestAddCommandPrettyOutput(t *testing.T) {
 	defer cleanup()
 
 	addDescription = ""
-	addParent = 0
+	addParent = ""
 	addPretty = true
 
 	err := runAdd(nil, []string{"Test Task"})
@@ -192,7 +192,7 @@ func TestAddCommandToDoneParent(t *testing.T) {
 	// Create a done parent task
 	now := time.Now()
 	parent := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Done Parent",
 		Status:  models.StatusDone,
 		Created: now,
@@ -208,4 +208,19 @@ func TestAddCommandToDoneParent(t *testing.T) {
 	err = runAdd(nil, []string{"Child Task"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot add child to done task")
+}
+
+func TestAddCommandInvalidParentID(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	// Set invalid parent ID format
+	addParent = "invalid"
+	addDescription = ""
+	addPretty = false
+
+	// Test add should fail
+	err := runAdd(nil, []string{"Test Task"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid parent task ID")
 }

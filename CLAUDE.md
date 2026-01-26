@@ -22,9 +22,11 @@ go test ./internal/commands -run TestAddCommand
 go test ./... -coverprofile=coverage.out
 go tool cover -html=coverage.out
 
-# Lint
+# Lint (REQUIRED before committing)
 golangci-lint run
 ```
+
+**Important:** Always run `golangci-lint run` before committing. CI will fail if there are linter errors.
 
 ## Architecture
 
@@ -40,7 +42,7 @@ golangci-lint run
 Tasks are stored in `.clipm/tasks.json` with this structure:
 ```json
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "tasks": [...]
 }
 ```
@@ -50,7 +52,7 @@ The `Storage` type walks up directories to find `.clipm/` (like git finds `.git/
 ### Task Model
 
 Tasks have:
-- `ID` - Unix milliseconds timestamp
+- `ID` - 4-character lowercase alphabetic string (e.g., `abcd`, `wxyz`)
 - `Name` - Task title
 - `Description` - Optional details
 - `Parent` - Nullable pointer to parent task ID

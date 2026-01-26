@@ -39,7 +39,7 @@ type WatchEvent struct {
 	Type      string        `json:"type"`
 	Task      *models.Task  `json:"task,omitempty"`
 	Tasks     []models.Task `json:"tasks,omitempty"`
-	TaskID    int64         `json:"taskId,omitempty"`
+	TaskID    string        `json:"taskId,omitempty"`
 	Timestamp time.Time     `json:"timestamp"`
 }
 
@@ -61,7 +61,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	ticker := time.NewTicker(watchInterval)
 	defer ticker.Stop()
 
-	var prevTasks map[int64]models.Task
+	var prevTasks map[string]models.Task
 	first := true
 
 	for {
@@ -112,15 +112,15 @@ func filterByStatus(tasks []models.Task, status string) []models.Task {
 	return filtered
 }
 
-func toTaskMap(tasks []models.Task) map[int64]models.Task {
-	m := make(map[int64]models.Task)
+func toTaskMap(tasks []models.Task) map[string]models.Task {
+	m := make(map[string]models.Task)
 	for i := range tasks {
 		m[tasks[i].ID] = tasks[i]
 	}
 	return m
 }
 
-func detectChanges(prev, curr map[int64]models.Task) (added, updated, deleted []int64) {
+func detectChanges(prev, curr map[string]models.Task) (added, updated, deleted []string) {
 	for id := range curr {
 		task := curr[id]
 		if _, exists := prev[id]; !exists {
@@ -147,7 +147,7 @@ func outputSnapshot(tasks []models.Task) {
 	fmt.Println(string(out))
 }
 
-func outputChanges(prev, curr map[int64]models.Task) {
+func outputChanges(prev, curr map[string]models.Task) {
 	added, updated, deleted := detectChanges(prev, curr)
 
 	now := time.Now()
@@ -231,7 +231,7 @@ func clearAndRender(tasks []models.Task) {
 		statusColor.Printf("\n%s (%d)\n", status, len(group))
 
 		for i := range group {
-			fmt.Printf("  %d  %s\n", group[i].ID, group[i].Name)
+			fmt.Printf("  %s  %s\n", group[i].ID, group[i].Name)
 		}
 	}
 }

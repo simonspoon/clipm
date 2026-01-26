@@ -31,7 +31,7 @@ func TestTreeCommand_SingleTask(t *testing.T) {
 	// Create a single task
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Single Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -56,8 +56,9 @@ func TestTreeCommand_SimpleHierarchy(t *testing.T) {
 
 	// Create parent
 	now := time.Now()
+	parentID := "aaaa"
 	parent := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      parentID,
 		Name:    "Parent Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -66,14 +67,13 @@ func TestTreeCommand_SimpleHierarchy(t *testing.T) {
 	require.NoError(t, store.SaveTask(parent))
 
 	// Create child
-	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Child Task",
-		Parent:  &parent.ID,
+		Parent:  &parentID,
 		Status:  models.StatusInProgress,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child))
 
@@ -93,8 +93,9 @@ func TestTreeCommand_ComplexHierarchy(t *testing.T) {
 	require.NoError(t, err)
 
 	now := time.Now()
+	root1ID := "aaaa"
 	root1 := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      root1ID,
 		Name:    "Root 1",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -102,37 +103,34 @@ func TestTreeCommand_ComplexHierarchy(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(root1))
 
-	time.Sleep(2 * time.Millisecond)
 	child1 := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Child 1",
-		Parent:  &root1.ID,
+		Parent:  &root1ID,
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child1))
 
-	time.Sleep(2 * time.Millisecond)
-	child2ID := time.Now().UnixMilli()
+	child2ID := "aaac"
 	child2 := &models.Task{
 		ID:      child2ID,
 		Name:    "Child 2",
-		Parent:  &root1.ID,
+		Parent:  &root1ID,
 		Status:  models.StatusInProgress,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child2))
 
-	time.Sleep(2 * time.Millisecond)
 	grandchild1 := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaad",
 		Name:    "Grandchild 1",
 		Parent:  &child2ID,
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(grandchild1))
 
@@ -153,15 +151,15 @@ func TestTreeCommand_MultipleRoots(t *testing.T) {
 
 	// Create multiple root tasks
 	now := time.Now()
-	for i := 0; i < 3; i++ {
+	ids := []string{"aaaa", "aaab", "aaac"}
+	for _, id := range ids {
 		task := &models.Task{
-			ID:      now.Add(time.Duration(i) * 2 * time.Millisecond).UnixMilli(),
+			ID:      id,
 			Name:    "Root Task",
 			Status:  models.StatusTodo,
-			Created: now.Add(time.Duration(i) * 2 * time.Millisecond),
-			Updated: now.Add(time.Duration(i) * 2 * time.Millisecond),
+			Created: now,
+			Updated: now,
 		}
-		time.Sleep(2 * time.Millisecond)
 		require.NoError(t, store.SaveTask(task))
 	}
 
@@ -194,7 +192,7 @@ func TestTreeCommand_JSONOutput(t *testing.T) {
 	// Create a task
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusDone,
 		Created: now,

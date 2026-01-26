@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Note represents an observation or progress update on a task
 type Note struct {
@@ -10,12 +13,12 @@ type Note struct {
 
 // Task represents a task in the work queue
 type Task struct {
-	ID          int64     `json:"id"`
+	ID          string    `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
-	Parent      *int64    `json:"parent"`
+	Parent      *string   `json:"parent"`
 	Status      string    `json:"status"`
-	BlockedBy   []int64   `json:"blockedBy,omitempty"`
+	BlockedBy   []string  `json:"blockedBy,omitempty"`
 	Owner       *string   `json:"owner,omitempty"`
 	Notes       []Note    `json:"notes,omitempty"`
 	Created     time.Time `json:"created"`
@@ -32,4 +35,22 @@ const (
 // IsValidStatus checks if a status value is valid
 func IsValidStatus(status string) bool {
 	return status == StatusTodo || status == StatusInProgress || status == StatusDone
+}
+
+// IsValidTaskID checks if an ID is a valid 4-character lowercase alphabetic string
+func IsValidTaskID(id string) bool {
+	if len(id) != 4 {
+		return false
+	}
+	for _, c := range id {
+		if c < 'a' || c > 'z' {
+			return false
+		}
+	}
+	return true
+}
+
+// NormalizeTaskID converts an ID to lowercase for case-insensitive input
+func NormalizeTaskID(id string) string {
+	return strings.ToLower(id)
 }

@@ -26,12 +26,13 @@ func init() {
 }
 
 func runParent(cmd *cobra.Command, args []string) error {
-	// Parse task IDs
-	var childID, parentID int64
-	if _, err := fmt.Sscanf(args[0], "%d", &childID); err != nil {
+	// Normalize and validate task IDs
+	childID := models.NormalizeTaskID(args[0])
+	if !models.IsValidTaskID(childID) {
 		return fmt.Errorf("invalid task ID: %s", args[0])
 	}
-	if _, err := fmt.Sscanf(args[1], "%d", &parentID); err != nil {
+	parentID := models.NormalizeTaskID(args[1])
+	if !models.IsValidTaskID(parentID) {
 		return fmt.Errorf("invalid parent ID: %s", args[1])
 	}
 
@@ -49,18 +50,18 @@ func runParent(cmd *cobra.Command, args []string) error {
 	// Check child task exists
 	childTask, err := store.LoadTask(childID)
 	if err != nil {
-		return fmt.Errorf("task %d not found", childID)
+		return fmt.Errorf("task %s not found", childID)
 	}
 
 	// Check parent task exists
 	parentTask, err := store.LoadTask(parentID)
 	if err != nil {
-		return fmt.Errorf("parent task %d not found", parentID)
+		return fmt.Errorf("parent task %s not found", parentID)
 	}
 
 	// Check parent is not done
 	if parentTask.Status == models.StatusDone {
-		return fmt.Errorf("cannot set done task %d as parent", parentID)
+		return fmt.Errorf("cannot set done task %s as parent", parentID)
 	}
 
 	// Check for circular dependencies
@@ -79,7 +80,7 @@ func runParent(cmd *cobra.Command, args []string) error {
 
 	if parentPretty {
 		green := color.New(color.FgGreen)
-		green.Printf("Task %d is now a child of %d\n", childID, parentID)
+		green.Printf("Task %s is now a child of %s\n", childID, parentID)
 	} else {
 		out, _ := json.Marshal(childTask)
 		fmt.Println(string(out))
@@ -89,11 +90,11 @@ func runParent(cmd *cobra.Command, args []string) error {
 }
 
 // wouldCreateCycle checks if setting parentID as the parent of childID would create a cycle
-func wouldCreateCycle(store *storage.Storage, childID, parentID int64) bool {
+func wouldCreateCycle(store *storage.Storage, childID, parentID string) bool {
 	// Traverse up the parent chain from the proposed parent
 	// If we encounter childID, we have a cycle
 	currentID := parentID
-	visited := make(map[int64]bool)
+	visited := make(map[string]bool)
 
 	for {
 		// Detect loops in existing structure

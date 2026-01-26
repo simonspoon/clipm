@@ -89,18 +89,18 @@ Example workflow:
 clipm next
 
 # Returns JSON like:
-# {"task": {"id": 1737500000000, "name": "Implement feature X", ...}}
+# {"task": {"id": "abcd", "name": "Implement feature X", ...}}
 
 # Agent claims and starts task
-clipm claim 1737500000000 agent-1
-clipm status 1737500000000 in-progress
+clipm claim abcd agent-1
+clipm status abcd in-progress
 
 # Agent adds progress notes
-clipm note 1737500000000 "Started implementation"
-clipm note 1737500000000 "Found edge case, handling it"
+clipm note abcd "Started implementation"
+clipm note abcd "Found edge case, handling it"
 
 # Agent completes work, marks done
-clipm status 1737500000000 done
+clipm status abcd done
 ```
 
 ### Multi-Agent Coordination

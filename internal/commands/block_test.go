@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -20,7 +19,7 @@ func TestBlockCommand(t *testing.T) {
 
 	now := time.Now()
 	blocker := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Blocker Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -28,18 +27,17 @@ func TestBlockCommand(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(blocker))
 
-	time.Sleep(2 * time.Millisecond)
 	blocked := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Blocked Task",
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(blocked))
 
 	blockPretty = false
-	err = runBlock(nil, []string{fmt.Sprintf("%d", blocker.ID), fmt.Sprintf("%d", blocked.ID)})
+	err = runBlock(nil, []string{blocker.ID, blocked.ID})
 	require.NoError(t, err)
 
 	// Verify blocked task has blocker in BlockedBy
@@ -57,7 +55,7 @@ func TestBlockCommand_SelfBlock(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -66,7 +64,7 @@ func TestBlockCommand_SelfBlock(t *testing.T) {
 	require.NoError(t, store.SaveTask(task))
 
 	blockPretty = false
-	err = runBlock(nil, []string{fmt.Sprintf("%d", task.ID), fmt.Sprintf("%d", task.ID)})
+	err = runBlock(nil, []string{task.ID, task.ID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot block itself")
 }
@@ -80,7 +78,7 @@ func TestBlockCommand_CycleDetection(t *testing.T) {
 
 	now := time.Now()
 	taskA := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Task A",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -88,24 +86,23 @@ func TestBlockCommand_CycleDetection(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(taskA))
 
-	time.Sleep(2 * time.Millisecond)
 	taskB := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Task B",
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(taskB))
 
 	blockPretty = false
 
 	// A blocks B (B is blocked by A)
-	err = runBlock(nil, []string{fmt.Sprintf("%d", taskA.ID), fmt.Sprintf("%d", taskB.ID)})
+	err = runBlock(nil, []string{taskA.ID, taskB.ID})
 	require.NoError(t, err)
 
 	// B blocks A should fail (would create cycle)
-	err = runBlock(nil, []string{fmt.Sprintf("%d", taskB.ID), fmt.Sprintf("%d", taskA.ID)})
+	err = runBlock(nil, []string{taskB.ID, taskA.ID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cycle")
 }
@@ -119,7 +116,7 @@ func TestBlockCommand_CannotBlockOnDone(t *testing.T) {
 
 	now := time.Now()
 	doneTask := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Done Task",
 		Status:  models.StatusDone,
 		Created: now,
@@ -127,18 +124,17 @@ func TestBlockCommand_CannotBlockOnDone(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(doneTask))
 
-	time.Sleep(2 * time.Millisecond)
 	todoTask := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Todo Task",
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(todoTask))
 
 	blockPretty = false
-	err = runBlock(nil, []string{fmt.Sprintf("%d", doneTask.ID), fmt.Sprintf("%d", todoTask.ID)})
+	err = runBlock(nil, []string{doneTask.ID, todoTask.ID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "completed task")
 }
@@ -152,7 +148,7 @@ func TestBlockCommand_AlreadyBlocked(t *testing.T) {
 
 	now := time.Now()
 	blocker := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Blocker",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -160,19 +156,18 @@ func TestBlockCommand_AlreadyBlocked(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(blocker))
 
-	time.Sleep(2 * time.Millisecond)
 	blocked := &models.Task{
-		ID:        time.Now().UnixMilli(),
+		ID:        "aaab",
 		Name:      "Blocked",
 		Status:    models.StatusTodo,
-		BlockedBy: []int64{blocker.ID},
-		Created:   time.Now(),
-		Updated:   time.Now(),
+		BlockedBy: []string{blocker.ID},
+		Created:   now,
+		Updated:   now,
 	}
 	require.NoError(t, store.SaveTask(blocked))
 
 	blockPretty = false
-	err = runBlock(nil, []string{fmt.Sprintf("%d", blocker.ID), fmt.Sprintf("%d", blocked.ID)})
+	err = runBlock(nil, []string{blocker.ID, blocked.ID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already blocked")
 }
@@ -186,7 +181,7 @@ func TestUnblockCommand(t *testing.T) {
 
 	now := time.Now()
 	blocker := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Blocker",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -194,19 +189,18 @@ func TestUnblockCommand(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(blocker))
 
-	time.Sleep(2 * time.Millisecond)
 	blocked := &models.Task{
-		ID:        time.Now().UnixMilli(),
+		ID:        "aaab",
 		Name:      "Blocked",
 		Status:    models.StatusTodo,
-		BlockedBy: []int64{blocker.ID},
-		Created:   time.Now(),
-		Updated:   time.Now(),
+		BlockedBy: []string{blocker.ID},
+		Created:   now,
+		Updated:   now,
 	}
 	require.NoError(t, store.SaveTask(blocked))
 
 	unblockPretty = false
-	err = runUnblock(nil, []string{fmt.Sprintf("%d", blocker.ID), fmt.Sprintf("%d", blocked.ID)})
+	err = runUnblock(nil, []string{blocker.ID, blocked.ID})
 	require.NoError(t, err)
 
 	updated, err := store.LoadTask(blocked.ID)
@@ -223,7 +217,7 @@ func TestUnblockCommand_NotBlocked(t *testing.T) {
 
 	now := time.Now()
 	task1 := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Task 1",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -231,18 +225,17 @@ func TestUnblockCommand_NotBlocked(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(task1))
 
-	time.Sleep(2 * time.Millisecond)
 	task2 := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Task 2",
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(task2))
 
 	unblockPretty = false
-	err = runUnblock(nil, []string{fmt.Sprintf("%d", task1.ID), fmt.Sprintf("%d", task2.ID)})
+	err = runUnblock(nil, []string{task1.ID, task2.ID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not blocked")
 }
@@ -256,7 +249,7 @@ func TestNextCommand_SkipsBlockedTasks(t *testing.T) {
 
 	now := time.Now()
 	blocker := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Blocker Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -264,14 +257,13 @@ func TestNextCommand_SkipsBlockedTasks(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(blocker))
 
-	time.Sleep(2 * time.Millisecond)
 	blocked := &models.Task{
-		ID:        time.Now().UnixMilli(),
+		ID:        "aaab",
 		Name:      "Blocked Task",
 		Status:    models.StatusTodo,
-		BlockedBy: []int64{blocker.ID},
-		Created:   time.Now(),
-		Updated:   time.Now(),
+		BlockedBy: []string{blocker.ID},
+		Created:   now.Add(time.Millisecond),
+		Updated:   now.Add(time.Millisecond),
 	}
 	require.NoError(t, store.SaveTask(blocked))
 
@@ -292,7 +284,7 @@ func TestStatusCommand_AutoRemovesBlockedBy(t *testing.T) {
 
 	now := time.Now()
 	blocker := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Blocker",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -300,20 +292,19 @@ func TestStatusCommand_AutoRemovesBlockedBy(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(blocker))
 
-	time.Sleep(2 * time.Millisecond)
 	blocked := &models.Task{
-		ID:        time.Now().UnixMilli(),
+		ID:        "aaab",
 		Name:      "Blocked",
 		Status:    models.StatusTodo,
-		BlockedBy: []int64{blocker.ID},
-		Created:   time.Now(),
-		Updated:   time.Now(),
+		BlockedBy: []string{blocker.ID},
+		Created:   now,
+		Updated:   now,
 	}
 	require.NoError(t, store.SaveTask(blocked))
 
 	// Mark blocker as done
 	statusPretty = false
-	err = runStatus(nil, []string{fmt.Sprintf("%d", blocker.ID), models.StatusDone})
+	err = runStatus(nil, []string{blocker.ID, models.StatusDone})
 	require.NoError(t, err)
 
 	// Blocked task should no longer be blocked

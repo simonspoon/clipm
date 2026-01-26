@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/simonspoon/clipm/internal/models"
 	"github.com/simonspoon/clipm/internal/storage"
 	"github.com/spf13/cobra"
 )
@@ -25,8 +26,8 @@ func init() {
 }
 
 func runUnclaim(cmd *cobra.Command, args []string) error {
-	var id int64
-	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
+	id := models.NormalizeTaskID(args[0])
+	if !models.IsValidTaskID(id) {
 		return fmt.Errorf("invalid task ID: %s", args[0])
 	}
 
@@ -38,13 +39,13 @@ func runUnclaim(cmd *cobra.Command, args []string) error {
 	task, err := store.LoadTask(id)
 	if err != nil {
 		if err == storage.ErrTaskNotFound {
-			return fmt.Errorf("task %d not found", id)
+			return fmt.Errorf("task %s not found", id)
 		}
 		return err
 	}
 
 	if task.Owner == nil {
-		return fmt.Errorf("task %d has no owner", id)
+		return fmt.Errorf("task %s has no owner", id)
 	}
 
 	task.Owner = nil
@@ -56,7 +57,7 @@ func runUnclaim(cmd *cobra.Command, args []string) error {
 
 	if unclaimPretty {
 		green := color.New(color.FgGreen)
-		green.Printf("Task %d ownership cleared\n", id)
+		green.Printf("Task %s ownership cleared\n", id)
 	} else {
 		out, _ := json.Marshal(task)
 		fmt.Println(string(out))

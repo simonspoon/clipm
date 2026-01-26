@@ -29,7 +29,7 @@ func TestNextCommand_SingleTask(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Only Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -53,7 +53,7 @@ func TestNextCommand_ReturnsFIFO(t *testing.T) {
 	// Create older task
 	older := time.Now()
 	task1 := &models.Task{
-		ID:      older.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Older Task",
 		Status:  models.StatusTodo,
 		Created: older,
@@ -62,10 +62,9 @@ func TestNextCommand_ReturnsFIFO(t *testing.T) {
 	require.NoError(t, store.SaveTask(task1))
 
 	// Create newer task
-	time.Sleep(5 * time.Millisecond)
-	newer := time.Now()
+	newer := older.Add(5 * time.Millisecond)
 	task2 := &models.Task{
-		ID:      newer.UnixMilli(),
+		ID:      "aaab",
 		Name:    "Newer Task",
 		Status:  models.StatusTodo,
 		Created: newer,
@@ -92,7 +91,7 @@ func TestNextCommand_SkipsNonTodoTasks(t *testing.T) {
 
 	// Create done task (oldest)
 	doneTask := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Done Task",
 		Status:  models.StatusDone,
 		Created: now,
@@ -101,24 +100,22 @@ func TestNextCommand_SkipsNonTodoTasks(t *testing.T) {
 	require.NoError(t, store.SaveTask(doneTask))
 
 	// Create in-progress task
-	time.Sleep(2 * time.Millisecond)
 	inProgress := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "In Progress Task",
 		Status:  models.StatusInProgress,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now.Add(time.Millisecond),
+		Updated: now.Add(time.Millisecond),
 	}
 	require.NoError(t, store.SaveTask(inProgress))
 
 	// Create todo task (newest)
-	time.Sleep(2 * time.Millisecond)
 	todoTask := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaac",
 		Name:    "Todo Task",
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now.Add(2 * time.Millisecond),
+		Updated: now.Add(2 * time.Millisecond),
 	}
 	require.NoError(t, store.SaveTask(todoTask))
 
@@ -139,7 +136,7 @@ func TestNextCommand_Pretty(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:          now.UnixMilli(),
+		ID:          "aaaa",
 		Name:        "Test Task",
 		Description: "A description",
 		Status:      models.StatusTodo,

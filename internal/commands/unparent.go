@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/simonspoon/clipm/internal/models"
 	"github.com/simonspoon/clipm/internal/storage"
 	"github.com/spf13/cobra"
 )
@@ -25,9 +26,9 @@ func init() {
 }
 
 func runUnparent(cmd *cobra.Command, args []string) error {
-	// Parse task ID
-	var id int64
-	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
+	// Normalize and validate task ID
+	id := models.NormalizeTaskID(args[0])
+	if !models.IsValidTaskID(id) {
 		return fmt.Errorf("invalid task ID: %s", args[0])
 	}
 
@@ -40,14 +41,14 @@ func runUnparent(cmd *cobra.Command, args []string) error {
 	// Load the task
 	task, err := store.LoadTask(id)
 	if err != nil {
-		return fmt.Errorf("task %d not found", id)
+		return fmt.Errorf("task %s not found", id)
 	}
 
 	// Check if task already has no parent
 	if task.Parent == nil {
 		if unparentPretty {
 			yellow := color.New(color.FgYellow)
-			yellow.Printf("Task %d is already a top-level task\n", id)
+			yellow.Printf("Task %s is already a top-level task\n", id)
 		} else {
 			out, _ := json.Marshal(task)
 			fmt.Println(string(out))
@@ -66,7 +67,7 @@ func runUnparent(cmd *cobra.Command, args []string) error {
 
 	if unparentPretty {
 		green := color.New(color.FgGreen)
-		green.Printf("Task %d is now a top-level task\n", id)
+		green.Printf("Task %s is now a top-level task\n", id)
 	} else {
 		out, _ := json.Marshal(task)
 		fmt.Println(string(out))

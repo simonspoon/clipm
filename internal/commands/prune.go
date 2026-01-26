@@ -24,8 +24,8 @@ func init() {
 }
 
 type pruneResult struct {
-	Deleted []int64 `json:"deleted"`
-	Count   int     `json:"count"`
+	Deleted []string `json:"deleted"`
+	Count   int      `json:"count"`
 }
 
 func runPrune(cmd *cobra.Command, args []string) error {
@@ -42,7 +42,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 
 	// Find tasks that can be pruned (done and no undone children)
-	var toPrune []int64
+	var toPrune []string
 	for i := range tasks {
 		if tasks[i].Status != models.StatusDone {
 			continue
@@ -61,7 +61,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(toPrune) == 0 {
-		result := pruneResult{Deleted: []int64{}, Count: 0}
+		result := pruneResult{Deleted: []string{}, Count: 0}
 		if prunePretty {
 			fmt.Println("No completed tasks to prune")
 		} else {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/simonspoon/clipm/internal/models"
 	"github.com/simonspoon/clipm/internal/storage"
 	"github.com/spf13/cobra"
 )
@@ -25,11 +26,12 @@ func init() {
 }
 
 func runUnblock(cmd *cobra.Command, args []string) error {
-	var blockerID, blockedID int64
-	if _, err := fmt.Sscanf(args[0], "%d", &blockerID); err != nil {
+	blockerID := models.NormalizeTaskID(args[0])
+	if !models.IsValidTaskID(blockerID) {
 		return fmt.Errorf("invalid blocker ID: %s", args[0])
 	}
-	if _, err := fmt.Sscanf(args[1], "%d", &blockedID); err != nil {
+	blockedID := models.NormalizeTaskID(args[1])
+	if !models.IsValidTaskID(blockedID) {
 		return fmt.Errorf("invalid blocked ID: %s", args[1])
 	}
 
@@ -41,14 +43,14 @@ func runUnblock(cmd *cobra.Command, args []string) error {
 	blocked, err := store.LoadTask(blockedID)
 	if err != nil {
 		if err == storage.ErrTaskNotFound {
-			return fmt.Errorf("task %d not found", blockedID)
+			return fmt.Errorf("task %s not found", blockedID)
 		}
 		return err
 	}
 
 	// Find and remove blocker
 	found := false
-	newBlockedBy := make([]int64, 0, len(blocked.BlockedBy))
+	newBlockedBy := make([]string, 0, len(blocked.BlockedBy))
 	for _, id := range blocked.BlockedBy {
 		if id == blockerID {
 			found = true
@@ -58,7 +60,7 @@ func runUnblock(cmd *cobra.Command, args []string) error {
 	}
 
 	if !found {
-		return fmt.Errorf("task %d is not blocked by %d", blockedID, blockerID)
+		return fmt.Errorf("task %s is not blocked by %s", blockedID, blockerID)
 	}
 
 	blocked.BlockedBy = newBlockedBy
@@ -70,7 +72,7 @@ func runUnblock(cmd *cobra.Command, args []string) error {
 
 	if unblockPretty {
 		green := color.New(color.FgGreen)
-		green.Printf("Task %d is no longer blocked by %d\n", blockedID, blockerID)
+		green.Printf("Task %s is no longer blocked by %s\n", blockedID, blockerID)
 	} else {
 		out, _ := json.Marshal(blocked)
 		fmt.Println(string(out))

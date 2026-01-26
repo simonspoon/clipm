@@ -48,7 +48,7 @@ func runNext(cmd *cobra.Command, args []string) error {
 	if result.Task != nil {
 		if nextPretty {
 			cyan := color.New(color.FgCyan)
-			cyan.Printf("Next task: %d - %s\n", result.Task.ID, result.Task.Name)
+			cyan.Printf("Next task: %s - %s\n", result.Task.ID, result.Task.Name)
 			if result.Task.Description != "" {
 				fmt.Printf("Description: %s\n", result.Task.Description)
 			}
@@ -65,7 +65,7 @@ func runNext(cmd *cobra.Command, args []string) error {
 			yellow := color.New(color.FgYellow)
 			yellow.Println("No task in progress. Available candidates:")
 			for i := range result.Candidates {
-				fmt.Printf("  %d. %d - %s\n", i+1, result.Candidates[i].ID, result.Candidates[i].Name)
+				fmt.Printf("  %d. %s - %s\n", i+1, result.Candidates[i].ID, result.Candidates[i].Name)
 			}
 		} else {
 			out, _ := json.Marshal(result)

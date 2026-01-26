@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -20,7 +19,7 @@ func TestClaimCommand(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -30,7 +29,7 @@ func TestClaimCommand(t *testing.T) {
 
 	claimPretty = false
 	claimForce = false
-	err = runClaim(nil, []string{fmt.Sprintf("%d", task.ID), "agent-1"})
+	err = runClaim(nil, []string{task.ID, "agent-1"})
 	require.NoError(t, err)
 
 	updated, err := store.LoadTask(task.ID)
@@ -49,7 +48,7 @@ func TestClaimCommand_AlreadyOwned(t *testing.T) {
 	owner := "agent-1"
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Owner:   &owner,
@@ -60,7 +59,7 @@ func TestClaimCommand_AlreadyOwned(t *testing.T) {
 
 	claimPretty = false
 	claimForce = false
-	err = runClaim(nil, []string{fmt.Sprintf("%d", task.ID), "agent-2"})
+	err = runClaim(nil, []string{task.ID, "agent-2"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already owned")
 }
@@ -75,7 +74,7 @@ func TestClaimCommand_ForceOverride(t *testing.T) {
 	owner := "agent-1"
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Owner:   &owner,
@@ -86,7 +85,7 @@ func TestClaimCommand_ForceOverride(t *testing.T) {
 
 	claimPretty = false
 	claimForce = true
-	err = runClaim(nil, []string{fmt.Sprintf("%d", task.ID), "agent-2"})
+	err = runClaim(nil, []string{task.ID, "agent-2"})
 	require.NoError(t, err)
 
 	updated, err := store.LoadTask(task.ID)
@@ -105,7 +104,7 @@ func TestClaimCommand_SameOwner(t *testing.T) {
 	owner := "agent-1"
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Owner:   &owner,
@@ -117,7 +116,7 @@ func TestClaimCommand_SameOwner(t *testing.T) {
 	claimPretty = false
 	claimForce = false
 	// Same owner can re-claim
-	err = runClaim(nil, []string{fmt.Sprintf("%d", task.ID), "agent-1"})
+	err = runClaim(nil, []string{task.ID, "agent-1"})
 	require.NoError(t, err)
 }
 
@@ -127,7 +126,7 @@ func TestClaimCommand_TaskNotFound(t *testing.T) {
 
 	claimPretty = false
 	claimForce = false
-	err := runClaim(nil, []string{"999999999999", "agent-1"})
+	err := runClaim(nil, []string{"zzzz", "agent-1"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -142,7 +141,7 @@ func TestUnclaimCommand(t *testing.T) {
 	owner := "agent-1"
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Owner:   &owner,
@@ -152,7 +151,7 @@ func TestUnclaimCommand(t *testing.T) {
 	require.NoError(t, store.SaveTask(task))
 
 	unclaimPretty = false
-	err = runUnclaim(nil, []string{fmt.Sprintf("%d", task.ID)})
+	err = runUnclaim(nil, []string{task.ID})
 	require.NoError(t, err)
 
 	updated, err := store.LoadTask(task.ID)
@@ -169,7 +168,7 @@ func TestUnclaimCommand_NoOwner(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -178,7 +177,7 @@ func TestUnclaimCommand_NoOwner(t *testing.T) {
 	require.NoError(t, store.SaveTask(task))
 
 	unclaimPretty = false
-	err = runUnclaim(nil, []string{fmt.Sprintf("%d", task.ID)})
+	err = runUnclaim(nil, []string{task.ID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no owner")
 }
@@ -195,7 +194,7 @@ func TestListCommand_OwnerFilter(t *testing.T) {
 	now := time.Now()
 
 	task1 := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Task 1",
 		Status:  models.StatusTodo,
 		Owner:   &owner1,
@@ -204,24 +203,22 @@ func TestListCommand_OwnerFilter(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(task1))
 
-	time.Sleep(2 * time.Millisecond)
 	task2 := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Task 2",
 		Status:  models.StatusTodo,
 		Owner:   &owner2,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(task2))
 
-	time.Sleep(2 * time.Millisecond)
 	task3 := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaac",
 		Name:    "Task 3",
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(task3))
 
@@ -248,7 +245,7 @@ func TestListCommand_UnclaimedFilter(t *testing.T) {
 	now := time.Now()
 
 	task1 := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Owned Task",
 		Status:  models.StatusTodo,
 		Owner:   &owner,
@@ -257,13 +254,12 @@ func TestListCommand_UnclaimedFilter(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(task1))
 
-	time.Sleep(2 * time.Millisecond)
 	task2 := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Unclaimed Task",
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(task2))
 
@@ -290,7 +286,7 @@ func TestNextCommand_UnclaimedFlag(t *testing.T) {
 
 	// Create an owned task (older)
 	task1 := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Owned Task",
 		Status:  models.StatusTodo,
 		Owner:   &owner,
@@ -300,13 +296,12 @@ func TestNextCommand_UnclaimedFlag(t *testing.T) {
 	require.NoError(t, store.SaveTask(task1))
 
 	// Create an unclaimed task (newer)
-	time.Sleep(2 * time.Millisecond)
 	task2 := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Unclaimed Task",
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now.Add(time.Millisecond),
+		Updated: now.Add(time.Millisecond),
 	}
 	require.NoError(t, store.SaveTask(task2))
 

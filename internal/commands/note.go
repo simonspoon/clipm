@@ -26,8 +26,8 @@ func init() {
 }
 
 func runNote(cmd *cobra.Command, args []string) error {
-	var id int64
-	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
+	id := models.NormalizeTaskID(args[0])
+	if !models.IsValidTaskID(id) {
 		return fmt.Errorf("invalid task ID: %s", args[0])
 	}
 
@@ -44,7 +44,7 @@ func runNote(cmd *cobra.Command, args []string) error {
 	task, err := store.LoadTask(id)
 	if err != nil {
 		if err == storage.ErrTaskNotFound {
-			return fmt.Errorf("task %d not found", id)
+			return fmt.Errorf("task %s not found", id)
 		}
 		return err
 	}
@@ -63,7 +63,7 @@ func runNote(cmd *cobra.Command, args []string) error {
 
 	if notePretty {
 		green := color.New(color.FgGreen)
-		green.Printf("Added note to task %d\n", id)
+		green.Printf("Added note to task %s\n", id)
 	} else {
 		out, _ := json.Marshal(task)
 		fmt.Println(string(out))

@@ -54,7 +54,7 @@ func runBlock(cmd *cobra.Command, args []string) error {
 
 	if blockPretty {
 		green := color.New(color.FgGreen)
-		green.Printf("Task %d is now blocked by %d\n", blockedID, blockerID)
+		green.Printf("Task %s is now blocked by %s\n", blockedID, blockerID)
 	} else {
 		out, _ := json.Marshal(blocked)
 		fmt.Println(string(out))
@@ -63,24 +63,26 @@ func runBlock(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func parseBlockArgs(args []string) (blockerID, blockedID int64, err error) {
-	if _, err := fmt.Sscanf(args[0], "%d", &blockerID); err != nil {
-		return 0, 0, fmt.Errorf("invalid blocker ID: %s", args[0])
+func parseBlockArgs(args []string) (blockerID, blockedID string, err error) {
+	blockerID = models.NormalizeTaskID(args[0])
+	if !models.IsValidTaskID(blockerID) {
+		return "", "", fmt.Errorf("invalid blocker ID: %s", args[0])
 	}
-	if _, err := fmt.Sscanf(args[1], "%d", &blockedID); err != nil {
-		return 0, 0, fmt.Errorf("invalid blocked ID: %s", args[1])
+	blockedID = models.NormalizeTaskID(args[1])
+	if !models.IsValidTaskID(blockedID) {
+		return "", "", fmt.Errorf("invalid blocked ID: %s", args[1])
 	}
 	if blockerID == blockedID {
-		return 0, 0, fmt.Errorf("a task cannot block itself")
+		return "", "", fmt.Errorf("a task cannot block itself")
 	}
 	return blockerID, blockedID, nil
 }
 
-func loadBlockTasks(store *storage.Storage, blockerID, blockedID int64) (*models.Task, *models.Task, error) {
+func loadBlockTasks(store *storage.Storage, blockerID, blockedID string) (*models.Task, *models.Task, error) {
 	blocker, err := store.LoadTask(blockerID)
 	if err != nil {
 		if err == storage.ErrTaskNotFound {
-			return nil, nil, fmt.Errorf("blocker task %d not found", blockerID)
+			return nil, nil, fmt.Errorf("blocker task %s not found", blockerID)
 		}
 		return nil, nil, err
 	}
@@ -88,16 +90,16 @@ func loadBlockTasks(store *storage.Storage, blockerID, blockedID int64) (*models
 	blocked, err := store.LoadTask(blockedID)
 	if err != nil {
 		if err == storage.ErrTaskNotFound {
-			return nil, nil, fmt.Errorf("blocked task %d not found", blockedID)
+			return nil, nil, fmt.Errorf("blocked task %s not found", blockedID)
 		}
 		return nil, nil, err
 	}
 	return blocker, blocked, nil
 }
 
-func validateBlock(store *storage.Storage, blocker, blocked *models.Task, blockerID, blockedID int64) error {
+func validateBlock(store *storage.Storage, blocker, blocked *models.Task, blockerID, blockedID string) error {
 	if blocker.Status == models.StatusDone {
-		return fmt.Errorf("cannot block on completed task %d", blockerID)
+		return fmt.Errorf("cannot block on completed task %s", blockerID)
 	}
 
 	hasCycle, err := store.WouldCreateCycle(blockerID, blockedID)
@@ -110,7 +112,7 @@ func validateBlock(store *storage.Storage, blocker, blocked *models.Task, blocke
 
 	for _, id := range blocked.BlockedBy {
 		if id == blockerID {
-			return fmt.Errorf("task %d is already blocked by %d", blockedID, blockerID)
+			return fmt.Errorf("task %s is already blocked by %s", blockedID, blockerID)
 		}
 	}
 	return nil

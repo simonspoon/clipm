@@ -13,7 +13,7 @@ import (
 
 var (
 	addDescription string
-	addParent      int64
+	addParent      string
 	addPretty      bool
 )
 
@@ -27,7 +27,7 @@ var addCmd = &cobra.Command{
 
 func init() {
 	addCmd.Flags().StringVarP(&addDescription, "description", "d", "", "Task description")
-	addCmd.Flags().Int64Var(&addParent, "parent", 0, "Parent task ID")
+	addCmd.Flags().StringVar(&addParent, "parent", "", "Parent task ID")
 	addCmd.Flags().BoolVar(&addPretty, "pretty", false, "Pretty print output")
 }
 
@@ -42,22 +42,32 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	// Validate parent if specified
-	var parent *int64
-	if addParent != 0 {
-		parentTask, err := store.LoadTask(addParent)
+	var parent *string
+	if addParent != "" {
+		normalizedParent := models.NormalizeTaskID(addParent)
+		if !models.IsValidTaskID(normalizedParent) {
+			return fmt.Errorf("invalid parent task ID: %s", addParent)
+		}
+		parentTask, err := store.LoadTask(normalizedParent)
 		if err != nil {
-			return fmt.Errorf("parent task %d not found", addParent)
+			return fmt.Errorf("parent task %s not found", addParent)
 		}
 		if parentTask.Status == models.StatusDone {
 			return fmt.Errorf("cannot add child to done task")
 		}
-		parent = &addParent
+		parent = &normalizedParent
+	}
+
+	// Generate new task ID
+	taskID, err := store.GenerateTaskID()
+	if err != nil {
+		return err
 	}
 
 	// Create task
 	now := time.Now()
 	task := &models.Task{
-		ID:          now.UnixMilli(),
+		ID:          taskID,
 		Name:        name,
 		Description: addDescription,
 		Parent:      parent,
@@ -73,7 +83,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 
 	if addPretty {
 		green := color.New(color.FgGreen)
-		green.Printf("Created task %d: %s\n", task.ID, task.Name)
+		green.Printf("Created task %s: %s\n", task.ID, task.Name)
 	} else {
 		out, _ := json.Marshal(task)
 		fmt.Println(string(out))

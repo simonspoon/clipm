@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -21,7 +20,7 @@ func TestStatusCommand(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -33,7 +32,7 @@ func TestStatusCommand(t *testing.T) {
 	statusPretty = false
 
 	// Test updating status
-	err = runStatus(nil, []string{fmt.Sprintf("%d", task.ID), models.StatusInProgress})
+	err = runStatus(nil, []string{task.ID, models.StatusInProgress})
 	require.NoError(t, err)
 
 	// Verify status was updated
@@ -53,7 +52,7 @@ func TestStatusCommand_InvalidStatus(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -65,7 +64,7 @@ func TestStatusCommand_InvalidStatus(t *testing.T) {
 	statusPretty = false
 
 	// Test invalid status
-	err = runStatus(nil, []string{fmt.Sprintf("%d", task.ID), "invalid-status"})
+	err = runStatus(nil, []string{task.ID, "invalid-status"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid status")
 }
@@ -78,7 +77,7 @@ func TestStatusCommand_TaskNotFound(t *testing.T) {
 	statusPretty = false
 
 	// Test non-existent task
-	err := runStatus(nil, []string{"999999999999", models.StatusDone})
+	err := runStatus(nil, []string{"zzzz", models.StatusDone})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -91,7 +90,7 @@ func TestStatusCommand_InvalidID(t *testing.T) {
 	statusPretty = false
 
 	// Test invalid ID format
-	err := runStatus(nil, []string{"not-a-number", models.StatusDone})
+	err := runStatus(nil, []string{"not-valid", models.StatusDone})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid task ID")
 }
@@ -105,7 +104,7 @@ func TestStatusCommand_AllStatuses(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -119,7 +118,7 @@ func TestStatusCommand_AllStatuses(t *testing.T) {
 	// Test each valid status
 	statuses := []string{models.StatusTodo, models.StatusInProgress, models.StatusDone}
 	for _, status := range statuses {
-		err = runStatus(nil, []string{fmt.Sprintf("%d", task.ID), status})
+		err = runStatus(nil, []string{task.ID, status})
 		require.NoError(t, err)
 
 		updated, err := store.LoadTask(task.ID)
@@ -138,8 +137,9 @@ func TestStatusCommand_CannotMarkDoneWithUndoneChildren(t *testing.T) {
 	now := time.Now()
 
 	// Create parent task
+	parentID := "aaaa"
 	parent := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      parentID,
 		Name:    "Parent Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -148,14 +148,13 @@ func TestStatusCommand_CannotMarkDoneWithUndoneChildren(t *testing.T) {
 	require.NoError(t, store.SaveTask(parent))
 
 	// Create child task
-	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Child Task",
 		Status:  models.StatusTodo,
-		Parent:  &parent.ID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Parent:  &parentID,
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child))
 
@@ -163,16 +162,16 @@ func TestStatusCommand_CannotMarkDoneWithUndoneChildren(t *testing.T) {
 	statusPretty = false
 
 	// Try to mark parent as done - should fail
-	err = runStatus(nil, []string{fmt.Sprintf("%d", parent.ID), models.StatusDone})
+	err = runStatus(nil, []string{parent.ID, models.StatusDone})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "undone children")
 
 	// Mark child as done
-	err = runStatus(nil, []string{fmt.Sprintf("%d", child.ID), models.StatusDone})
+	err = runStatus(nil, []string{child.ID, models.StatusDone})
 	require.NoError(t, err)
 
 	// Now parent can be marked done
-	err = runStatus(nil, []string{fmt.Sprintf("%d", parent.ID), models.StatusDone})
+	err = runStatus(nil, []string{parent.ID, models.StatusDone})
 	require.NoError(t, err)
 }
 
@@ -185,7 +184,7 @@ func TestStatusCommand_PrettyOutput(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -196,6 +195,6 @@ func TestStatusCommand_PrettyOutput(t *testing.T) {
 	// Set pretty flag
 	statusPretty = true
 
-	err = runStatus(nil, []string{fmt.Sprintf("%d", task.ID), models.StatusInProgress})
+	err = runStatus(nil, []string{task.ID, models.StatusInProgress})
 	require.NoError(t, err)
 }

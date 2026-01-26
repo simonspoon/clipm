@@ -59,7 +59,7 @@ func runTree(cmd *cobra.Command, args []string) error {
 	})
 
 	// Build task map for easy lookup
-	taskMap := make(map[int64]models.Task)
+	taskMap := make(map[string]models.Task)
 	for i := range tasks {
 		taskMap[tasks[i].ID] = tasks[i]
 	}
@@ -81,7 +81,7 @@ func runTree(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func printTaskTree(task *models.Task, taskMap map[int64]models.Task, prefix string, isLast bool) {
+func printTaskTree(task *models.Task, taskMap map[string]models.Task, prefix string, isLast bool) {
 	boldWhite := color.New(color.Bold, color.FgWhite)
 	gray := color.New(color.FgHiBlack)
 	statusColor := getStatusColor(task.Status)
@@ -97,7 +97,7 @@ func printTaskTree(task *models.Task, taskMap map[int64]models.Task, prefix stri
 
 	// Format: ID  Name  [STATUS]
 	fmt.Print(prefix + marker)
-	gray.Printf("%d  ", task.ID)
+	gray.Printf("%s  ", task.ID)
 	boldWhite.Print(task.Name)
 	fmt.Print("  ")
 	statusColor.Printf("[%s]", formatStatus(task.Status))

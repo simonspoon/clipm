@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/fatih/color"
+	"github.com/simonspoon/clipm/internal/models"
 	"github.com/simonspoon/clipm/internal/storage"
 	"github.com/spf13/cobra"
 )
@@ -24,14 +25,14 @@ func init() {
 }
 
 type deleteResult struct {
-	Success bool  `json:"success"`
-	ID      int64 `json:"id"`
+	Success bool   `json:"success"`
+	ID      string `json:"id"`
 }
 
 func runDelete(cmd *cobra.Command, args []string) error {
-	// Parse task ID
-	var id int64
-	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
+	// Normalize and validate task ID
+	id := models.NormalizeTaskID(args[0])
+	if !models.IsValidTaskID(id) {
 		return fmt.Errorf("invalid task ID: %s", args[0])
 	}
 
@@ -45,7 +46,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	_, err = store.LoadTask(id)
 	if err != nil {
 		if err == storage.ErrTaskNotFound {
-			return fmt.Errorf("task %d not found", id)
+			return fmt.Errorf("task %s not found", id)
 		}
 		return err
 	}
@@ -76,7 +77,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 	if deletePretty {
 		green := color.New(color.FgGreen)
-		green.Printf("Deleted task %d\n", id)
+		green.Printf("Deleted task %s\n", id)
 	} else {
 		out, _ := json.Marshal(result)
 		fmt.Println(string(out))

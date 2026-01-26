@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -21,7 +20,7 @@ func TestDeleteCommand(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -33,7 +32,7 @@ func TestDeleteCommand(t *testing.T) {
 	deletePretty = false
 
 	// Delete the task
-	err = runDelete(nil, []string{fmt.Sprintf("%d", task.ID)})
+	err = runDelete(nil, []string{task.ID})
 	require.NoError(t, err)
 
 	// Verify task was deleted
@@ -49,7 +48,7 @@ func TestDeleteCommand_TaskNotFound(t *testing.T) {
 	// Reset flag
 	deletePretty = false
 
-	err := runDelete(nil, []string{"999999999999"})
+	err := runDelete(nil, []string{"zzzz"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -61,7 +60,7 @@ func TestDeleteCommand_InvalidID(t *testing.T) {
 	// Reset flag
 	deletePretty = false
 
-	err := runDelete(nil, []string{"not-a-number"})
+	err := runDelete(nil, []string{"not-valid"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid task ID")
 }
@@ -76,8 +75,9 @@ func TestDeleteCommand_BlockedByUndoneChildren(t *testing.T) {
 	now := time.Now()
 
 	// Create parent task
+	parentID := "aaaa"
 	parent := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      parentID,
 		Name:    "Parent Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -86,14 +86,13 @@ func TestDeleteCommand_BlockedByUndoneChildren(t *testing.T) {
 	require.NoError(t, store.SaveTask(parent))
 
 	// Create child task
-	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Child Task",
 		Status:  models.StatusTodo,
-		Parent:  &parent.ID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Parent:  &parentID,
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child))
 
@@ -101,7 +100,7 @@ func TestDeleteCommand_BlockedByUndoneChildren(t *testing.T) {
 	deletePretty = false
 
 	// Try to delete parent - should fail
-	err = runDelete(nil, []string{fmt.Sprintf("%d", parent.ID)})
+	err = runDelete(nil, []string{parent.ID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "undone children")
 
@@ -120,8 +119,9 @@ func TestDeleteCommand_AllowedWithDoneChildren(t *testing.T) {
 	now := time.Now()
 
 	// Create parent task
+	parentID := "aaaa"
 	parent := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      parentID,
 		Name:    "Parent Task",
 		Status:  models.StatusDone,
 		Created: now,
@@ -130,14 +130,13 @@ func TestDeleteCommand_AllowedWithDoneChildren(t *testing.T) {
 	require.NoError(t, store.SaveTask(parent))
 
 	// Create child task that is done
-	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Child Task",
 		Status:  models.StatusDone,
-		Parent:  &parent.ID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Parent:  &parentID,
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child))
 
@@ -145,7 +144,7 @@ func TestDeleteCommand_AllowedWithDoneChildren(t *testing.T) {
 	deletePretty = false
 
 	// Delete parent - should succeed since children are done
-	err = runDelete(nil, []string{fmt.Sprintf("%d", parent.ID)})
+	err = runDelete(nil, []string{parent.ID})
 	require.NoError(t, err)
 
 	// Verify parent was deleted
@@ -168,8 +167,9 @@ func TestDeleteCommand_BlockedByUndoneGrandchildren(t *testing.T) {
 	now := time.Now()
 
 	// Create grandparent task
+	grandparentID := "aaaa"
 	grandparent := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      grandparentID,
 		Name:    "Grandparent Task",
 		Status:  models.StatusDone,
 		Created: now,
@@ -178,26 +178,25 @@ func TestDeleteCommand_BlockedByUndoneGrandchildren(t *testing.T) {
 	require.NoError(t, store.SaveTask(grandparent))
 
 	// Create parent task (done)
-	time.Sleep(2 * time.Millisecond)
+	parentID := "aaab"
 	parent := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      parentID,
 		Name:    "Parent Task",
 		Status:  models.StatusDone,
-		Parent:  &grandparent.ID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Parent:  &grandparentID,
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(parent))
 
 	// Create child task (undone)
-	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaac",
 		Name:    "Child Task",
 		Status:  models.StatusTodo,
-		Parent:  &parent.ID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Parent:  &parentID,
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child))
 
@@ -205,7 +204,7 @@ func TestDeleteCommand_BlockedByUndoneGrandchildren(t *testing.T) {
 	deletePretty = false
 
 	// Try to delete grandparent - should fail due to undone grandchild
-	err = runDelete(nil, []string{fmt.Sprintf("%d", grandparent.ID)})
+	err = runDelete(nil, []string{grandparent.ID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "undone children")
 
@@ -223,7 +222,7 @@ func TestDeleteCommand_PrettyOutput(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -235,6 +234,6 @@ func TestDeleteCommand_PrettyOutput(t *testing.T) {
 	deletePretty = true
 
 	// Delete with pretty output
-	err = runDelete(nil, []string{fmt.Sprintf("%d", task.ID)})
+	err = runDelete(nil, []string{task.ID})
 	require.NoError(t, err)
 }

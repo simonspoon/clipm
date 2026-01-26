@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/fatih/color"
@@ -27,9 +26,9 @@ func init() {
 }
 
 func runShow(cmd *cobra.Command, args []string) error {
-	// Parse task ID
-	id, err := strconv.ParseInt(args[0], 10, 64)
-	if err != nil {
+	// Normalize and validate task ID
+	id := models.NormalizeTaskID(args[0])
+	if !models.IsValidTaskID(id) {
 		return fmt.Errorf("invalid task ID: %s", args[0])
 	}
 
@@ -63,7 +62,7 @@ func printTaskDetails(task *models.Task) {
 
 	separator := strings.Repeat("-", 60)
 	cyan.Println(separator)
-	cyan.Printf("Task: %d\n", task.ID)
+	cyan.Printf("Task: %s\n", task.ID)
 	cyan.Println(separator)
 	fmt.Println()
 
@@ -76,7 +75,7 @@ func printTaskDetails(task *models.Task) {
 	white.Printf("Status:      %s\n", task.Status)
 
 	if task.Parent != nil {
-		white.Printf("Parent:      %d\n", *task.Parent)
+		white.Printf("Parent:      %s\n", *task.Parent)
 	} else {
 		white.Println("Parent:      none")
 	}

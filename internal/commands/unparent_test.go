@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -20,8 +19,9 @@ func TestUnparentCommand(t *testing.T) {
 
 	// Create parent and child with relationship
 	now := time.Now()
+	parentID := "aaaa"
 	parent := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      parentID,
 		Name:    "Parent Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -29,15 +29,13 @@ func TestUnparentCommand(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(parent))
 
-	time.Sleep(2 * time.Millisecond)
-	childNow := time.Now()
 	child := &models.Task{
-		ID:      childNow.UnixMilli(),
+		ID:      "aaab",
 		Name:    "Child Task",
-		Parent:  &parent.ID,
+		Parent:  &parentID,
 		Status:  models.StatusTodo,
-		Created: childNow,
-		Updated: childNow,
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child))
 
@@ -45,7 +43,7 @@ func TestUnparentCommand(t *testing.T) {
 	unparentPretty = false
 
 	// Unparent the child
-	err = runUnparent(nil, []string{fmt.Sprintf("%d", child.ID)})
+	err = runUnparent(nil, []string{child.ID})
 	require.NoError(t, err)
 
 	// Verify parent was removed
@@ -61,7 +59,7 @@ func TestUnparentCommand_InvalidID(t *testing.T) {
 	// Reset flag
 	unparentPretty = false
 
-	err := runUnparent(nil, []string{"not-a-number"})
+	err := runUnparent(nil, []string{"not-valid"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid task ID")
 }
@@ -73,7 +71,7 @@ func TestUnparentCommand_TaskNotFound(t *testing.T) {
 	// Reset flag
 	unparentPretty = false
 
-	err := runUnparent(nil, []string{"999999999999"})
+	err := runUnparent(nil, []string{"zzzz"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -88,7 +86,7 @@ func TestUnparentCommand_AlreadyTopLevel(t *testing.T) {
 	// Create task without parent
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Top Level Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -100,7 +98,7 @@ func TestUnparentCommand_AlreadyTopLevel(t *testing.T) {
 	unparentPretty = false
 
 	// Unparent already top-level task (should not error, just inform)
-	err = runUnparent(nil, []string{fmt.Sprintf("%d", task.ID)})
+	err = runUnparent(nil, []string{task.ID})
 	require.NoError(t, err)
 
 	// Verify still no parent
@@ -118,8 +116,9 @@ func TestUnparentCommand_PrettyOutput(t *testing.T) {
 
 	// Create parent and child
 	now := time.Now()
+	parentID := "aaaa"
 	parent := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      parentID,
 		Name:    "Parent Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -127,21 +126,20 @@ func TestUnparentCommand_PrettyOutput(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(parent))
 
-	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Child Task",
-		Parent:  &parent.ID,
+		Parent:  &parentID,
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child))
 
 	// Set pretty flag
 	unparentPretty = true
 
-	err = runUnparent(nil, []string{fmt.Sprintf("%d", child.ID)})
+	err = runUnparent(nil, []string{child.ID})
 	require.NoError(t, err)
 }
 
@@ -154,7 +152,7 @@ func TestUnparentCommand_AlreadyTopLevelPretty(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Top Level Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -165,6 +163,6 @@ func TestUnparentCommand_AlreadyTopLevelPretty(t *testing.T) {
 	// Set pretty flag
 	unparentPretty = true
 
-	err = runUnparent(nil, []string{fmt.Sprintf("%d", task.ID)})
+	err = runUnparent(nil, []string{task.ID})
 	require.NoError(t, err)
 }

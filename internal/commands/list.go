@@ -190,7 +190,7 @@ func printTasksPretty(tasks []models.Task) {
 		statusColor.Printf("\n%s (%d)\n", status, len(group))
 
 		for i := range group {
-			fmt.Printf("  %d  %s\n", group[i].ID, group[i].Name)
+			fmt.Printf("  %s  %s\n", group[i].ID, group[i].Name)
 		}
 	}
 }

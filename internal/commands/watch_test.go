@@ -11,29 +11,29 @@ import (
 func TestDetectChanges(t *testing.T) {
 	now := time.Now()
 
-	prev := map[int64]models.Task{
-		1: {ID: 1, Name: "Task 1", Updated: now},
-		2: {ID: 2, Name: "Task 2", Updated: now},
-		3: {ID: 3, Name: "Task 3", Updated: now},
+	prev := map[string]models.Task{
+		"aaaa": {ID: "aaaa", Name: "Task 1", Updated: now},
+		"aaab": {ID: "aaab", Name: "Task 2", Updated: now},
+		"aaac": {ID: "aaac", Name: "Task 3", Updated: now},
 	}
 
 	updatedTime := now.Add(time.Second)
-	curr := map[int64]models.Task{
-		1: {ID: 1, Name: "Task 1", Updated: now},                 // unchanged
-		2: {ID: 2, Name: "Task 2 Updated", Updated: updatedTime}, // updated
-		4: {ID: 4, Name: "Task 4", Updated: now},                 // added
+	curr := map[string]models.Task{
+		"aaaa": {ID: "aaaa", Name: "Task 1", Updated: now},                 // unchanged
+		"aaab": {ID: "aaab", Name: "Task 2 Updated", Updated: updatedTime}, // updated
+		"aaad": {ID: "aaad", Name: "Task 4", Updated: now},                 // added
 	}
 
 	added, updated, deleted := detectChanges(prev, curr)
 
-	assert.ElementsMatch(t, []int64{4}, added)
-	assert.ElementsMatch(t, []int64{2}, updated)
-	assert.ElementsMatch(t, []int64{3}, deleted)
+	assert.ElementsMatch(t, []string{"aaad"}, added)
+	assert.ElementsMatch(t, []string{"aaab"}, updated)
+	assert.ElementsMatch(t, []string{"aaac"}, deleted)
 }
 
 func TestDetectChangesEmpty(t *testing.T) {
-	prev := map[int64]models.Task{}
-	curr := map[int64]models.Task{}
+	prev := map[string]models.Task{}
+	curr := map[string]models.Task{}
 
 	added, updated, deleted := detectChanges(prev, curr)
 
@@ -44,40 +44,40 @@ func TestDetectChangesEmpty(t *testing.T) {
 
 func TestDetectChangesAllNew(t *testing.T) {
 	now := time.Now()
-	prev := map[int64]models.Task{}
-	curr := map[int64]models.Task{
-		1: {ID: 1, Name: "Task 1", Updated: now},
-		2: {ID: 2, Name: "Task 2", Updated: now},
+	prev := map[string]models.Task{}
+	curr := map[string]models.Task{
+		"aaaa": {ID: "aaaa", Name: "Task 1", Updated: now},
+		"aaab": {ID: "aaab", Name: "Task 2", Updated: now},
 	}
 
 	added, updated, deleted := detectChanges(prev, curr)
 
-	assert.ElementsMatch(t, []int64{1, 2}, added)
+	assert.ElementsMatch(t, []string{"aaaa", "aaab"}, added)
 	assert.Empty(t, updated)
 	assert.Empty(t, deleted)
 }
 
 func TestDetectChangesAllDeleted(t *testing.T) {
 	now := time.Now()
-	prev := map[int64]models.Task{
-		1: {ID: 1, Name: "Task 1", Updated: now},
-		2: {ID: 2, Name: "Task 2", Updated: now},
+	prev := map[string]models.Task{
+		"aaaa": {ID: "aaaa", Name: "Task 1", Updated: now},
+		"aaab": {ID: "aaab", Name: "Task 2", Updated: now},
 	}
-	curr := map[int64]models.Task{}
+	curr := map[string]models.Task{}
 
 	added, updated, deleted := detectChanges(prev, curr)
 
 	assert.Empty(t, added)
 	assert.Empty(t, updated)
-	assert.ElementsMatch(t, []int64{1, 2}, deleted)
+	assert.ElementsMatch(t, []string{"aaaa", "aaab"}, deleted)
 }
 
 func TestFilterByStatus(t *testing.T) {
 	tasks := []models.Task{
-		{ID: 1, Name: "Task 1", Status: models.StatusTodo},
-		{ID: 2, Name: "Task 2", Status: models.StatusInProgress},
-		{ID: 3, Name: "Task 3", Status: models.StatusDone},
-		{ID: 4, Name: "Task 4", Status: models.StatusTodo},
+		{ID: "aaaa", Name: "Task 1", Status: models.StatusTodo},
+		{ID: "aaab", Name: "Task 2", Status: models.StatusInProgress},
+		{ID: "aaac", Name: "Task 3", Status: models.StatusDone},
+		{ID: "aaad", Name: "Task 4", Status: models.StatusTodo},
 	}
 
 	filtered := filterByStatus(tasks, models.StatusTodo)
@@ -88,16 +88,16 @@ func TestFilterByStatus(t *testing.T) {
 
 	filtered = filterByStatus(tasks, models.StatusInProgress)
 	assert.Len(t, filtered, 1)
-	assert.Equal(t, int64(2), filtered[0].ID)
+	assert.Equal(t, "aaab", filtered[0].ID)
 
 	filtered = filterByStatus(tasks, models.StatusDone)
 	assert.Len(t, filtered, 1)
-	assert.Equal(t, int64(3), filtered[0].ID)
+	assert.Equal(t, "aaac", filtered[0].ID)
 }
 
 func TestFilterByStatusEmpty(t *testing.T) {
 	tasks := []models.Task{
-		{ID: 1, Name: "Task 1", Status: models.StatusTodo},
+		{ID: "aaaa", Name: "Task 1", Status: models.StatusTodo},
 	}
 
 	filtered := filterByStatus(tasks, models.StatusDone)
@@ -106,27 +106,27 @@ func TestFilterByStatusEmpty(t *testing.T) {
 
 func TestToTaskMap(t *testing.T) {
 	tasks := []models.Task{
-		{ID: 1, Name: "Task 1"},
-		{ID: 2, Name: "Task 2"},
-		{ID: 3, Name: "Task 3"},
+		{ID: "aaaa", Name: "Task 1"},
+		{ID: "aaab", Name: "Task 2"},
+		{ID: "aaac", Name: "Task 3"},
 	}
 
 	m := toTaskMap(tasks)
 
 	assert.Len(t, m, 3)
-	assert.Equal(t, "Task 1", m[1].Name)
-	assert.Equal(t, "Task 2", m[2].Name)
-	assert.Equal(t, "Task 3", m[3].Name)
+	assert.Equal(t, "Task 1", m["aaaa"].Name)
+	assert.Equal(t, "Task 2", m["aaab"].Name)
+	assert.Equal(t, "Task 3", m["aaac"].Name)
 }
 
 func TestCountByStatus(t *testing.T) {
 	tasks := []models.Task{
-		{ID: 1, Status: models.StatusTodo},
-		{ID: 2, Status: models.StatusTodo},
-		{ID: 3, Status: models.StatusInProgress},
-		{ID: 4, Status: models.StatusDone},
-		{ID: 5, Status: models.StatusDone},
-		{ID: 6, Status: models.StatusDone},
+		{ID: "aaaa", Status: models.StatusTodo},
+		{ID: "aaab", Status: models.StatusTodo},
+		{ID: "aaac", Status: models.StatusInProgress},
+		{ID: "aaad", Status: models.StatusDone},
+		{ID: "aaae", Status: models.StatusDone},
+		{ID: "aaaf", Status: models.StatusDone},
 	}
 
 	assert.Equal(t, 2, countByStatus(tasks, models.StatusTodo))

@@ -51,7 +51,7 @@ func TestSaveAndLoadTask(t *testing.T) {
 	// Create a test task
 	now := time.Now()
 	task := &models.Task{
-		ID:          now.UnixMilli(),
+		ID:          "aaaa",
 		Name:        "Test Task",
 		Description: "Test Description",
 		Status:      models.StatusTodo,
@@ -85,9 +85,10 @@ func TestLoadAll(t *testing.T) {
 
 	// Create multiple tasks
 	now := time.Now()
-	for i := 0; i < 3; i++ {
+	ids := []string{"aaaa", "aaab", "aaac"}
+	for _, id := range ids {
 		task := &models.Task{
-			ID:      now.UnixMilli() + int64(i),
+			ID:      id,
 			Name:    "Test Task",
 			Status:  models.StatusTodo,
 			Created: now,
@@ -114,7 +115,7 @@ func TestDeleteTask(t *testing.T) {
 	// Create and save a test task
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Task to Delete",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -142,10 +143,8 @@ func TestDeleteTasks(t *testing.T) {
 
 	// Create multiple tasks
 	now := time.Now()
-	var ids []int64
-	for i := 0; i < 3; i++ {
-		id := now.UnixMilli() + int64(i)
-		ids = append(ids, id)
+	ids := []string{"aaaa", "aaab", "aaac"}
+	for _, id := range ids {
 		task := &models.Task{
 			ID:      id,
 			Name:    "Task",
@@ -178,7 +177,7 @@ func TestTaskWithParent(t *testing.T) {
 
 	// Create parent task
 	now := time.Now()
-	parentID := now.UnixMilli()
+	parentID := "aaaa"
 	parent := &models.Task{
 		ID:      parentID,
 		Name:    "Parent Task",
@@ -190,7 +189,7 @@ func TestTaskWithParent(t *testing.T) {
 
 	// Create child task
 	child := &models.Task{
-		ID:      parentID + 1,
+		ID:      "aaab",
 		Name:    "Child Task",
 		Parent:  &parentID,
 		Status:  models.StatusTodo,
@@ -217,7 +216,7 @@ func TestGetChildren(t *testing.T) {
 
 	// Create parent task
 	now := time.Now()
-	parentID := now.UnixMilli()
+	parentID := "aaaa"
 	parent := &models.Task{
 		ID:      parentID,
 		Name:    "Parent",
@@ -228,9 +227,10 @@ func TestGetChildren(t *testing.T) {
 	require.NoError(t, store.SaveTask(parent))
 
 	// Create child tasks
-	for i := 1; i <= 3; i++ {
+	childIDs := []string{"aaab", "aaac", "aaad"}
+	for _, id := range childIDs {
 		child := &models.Task{
-			ID:      parentID + int64(i),
+			ID:      id,
 			Name:    "Child",
 			Parent:  &parentID,
 			Status:  models.StatusTodo,
@@ -265,7 +265,7 @@ func TestGetNextTask(t *testing.T) {
 	// Create tasks with different creation times
 	baseTime := time.Now()
 	task1 := &models.Task{
-		ID:      baseTime.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "First Task",
 		Status:  models.StatusTodo,
 		Created: baseTime,
@@ -275,7 +275,7 @@ func TestGetNextTask(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 	task2 := &models.Task{
-		ID:      baseTime.UnixMilli() + 10,
+		ID:      "aaab",
 		Name:    "Second Task",
 		Status:  models.StatusTodo,
 		Created: time.Now(),
@@ -318,8 +318,9 @@ func TestGetNextTask_DepthFirst(t *testing.T) {
 	baseTime := time.Now()
 
 	// Create Feature A (in-progress, root level)
+	featureAID := "aaaa"
 	featureA := &models.Task{
-		ID:      baseTime.UnixMilli(),
+		ID:      featureAID,
 		Name:    "Feature A",
 		Status:  models.StatusInProgress,
 		Created: baseTime,
@@ -328,10 +329,11 @@ func TestGetNextTask_DepthFirst(t *testing.T) {
 	require.NoError(t, store.SaveTask(featureA))
 
 	// Create A1 (in-progress, child of A)
+	a1ID := "aaab"
 	a1 := &models.Task{
-		ID:      baseTime.UnixMilli() + 1,
+		ID:      a1ID,
 		Name:    "A1",
-		Parent:  &featureA.ID,
+		Parent:  &featureAID,
 		Status:  models.StatusInProgress,
 		Created: baseTime.Add(time.Millisecond),
 		Updated: baseTime.Add(time.Millisecond),
@@ -340,9 +342,9 @@ func TestGetNextTask_DepthFirst(t *testing.T) {
 
 	// Create A2 (todo, child of A)
 	a2 := &models.Task{
-		ID:      baseTime.UnixMilli() + 2,
+		ID:      "aaac",
 		Name:    "A2",
-		Parent:  &featureA.ID,
+		Parent:  &featureAID,
 		Status:  models.StatusTodo,
 		Created: baseTime.Add(2 * time.Millisecond),
 		Updated: baseTime.Add(2 * time.Millisecond),
@@ -351,9 +353,9 @@ func TestGetNextTask_DepthFirst(t *testing.T) {
 
 	// Create A1a (done, child of A1)
 	a1a := &models.Task{
-		ID:      baseTime.UnixMilli() + 10,
+		ID:      "aaba",
 		Name:    "A1a",
-		Parent:  &a1.ID,
+		Parent:  &a1ID,
 		Status:  models.StatusDone,
 		Created: baseTime.Add(10 * time.Millisecond),
 		Updated: baseTime.Add(10 * time.Millisecond),
@@ -362,9 +364,9 @@ func TestGetNextTask_DepthFirst(t *testing.T) {
 
 	// Create A1b (todo, child of A1) - this should be returned
 	a1b := &models.Task{
-		ID:      baseTime.UnixMilli() + 11,
+		ID:      "aabb",
 		Name:    "A1b",
-		Parent:  &a1.ID,
+		Parent:  &a1ID,
 		Status:  models.StatusTodo,
 		Created: baseTime.Add(11 * time.Millisecond),
 		Updated: baseTime.Add(11 * time.Millisecond),
@@ -373,9 +375,9 @@ func TestGetNextTask_DepthFirst(t *testing.T) {
 
 	// Create A1c (todo, child of A1)
 	a1c := &models.Task{
-		ID:      baseTime.UnixMilli() + 12,
+		ID:      "aabc",
 		Name:    "A1c",
-		Parent:  &a1.ID,
+		Parent:  &a1ID,
 		Status:  models.StatusTodo,
 		Created: baseTime.Add(12 * time.Millisecond),
 		Updated: baseTime.Add(12 * time.Millisecond),
@@ -422,7 +424,7 @@ func TestGetNextTask_InProgressRootNoTodos(t *testing.T) {
 
 	// Single in-progress root task, no children
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Lone Task",
 		Status:  models.StatusInProgress,
 		Created: now,
@@ -449,8 +451,9 @@ func TestGetNextTask_WalksUpToRoot(t *testing.T) {
 	now := time.Now()
 
 	// Root task A (in-progress)
+	taskAID := "aaaa"
 	taskA := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      taskAID,
 		Name:    "Task A",
 		Status:  models.StatusInProgress,
 		Created: now,
@@ -460,7 +463,7 @@ func TestGetNextTask_WalksUpToRoot(t *testing.T) {
 
 	// Root task B (todo) - sibling of A at root level
 	taskB := &models.Task{
-		ID:      now.UnixMilli() + 1,
+		ID:      "aaab",
 		Name:    "Task B",
 		Status:  models.StatusTodo,
 		Created: now.Add(time.Millisecond),
@@ -470,9 +473,9 @@ func TestGetNextTask_WalksUpToRoot(t *testing.T) {
 
 	// Child of A (in-progress, deepest)
 	childA1 := &models.Task{
-		ID:      now.UnixMilli() + 10,
+		ID:      "aaba",
 		Name:    "A1",
-		Parent:  &taskA.ID,
+		Parent:  &taskAID,
 		Status:  models.StatusInProgress,
 		Created: now.Add(10 * time.Millisecond),
 		Updated: now.Add(10 * time.Millisecond),
@@ -498,7 +501,7 @@ func TestHasUndoneChildren(t *testing.T) {
 
 	// Create parent task
 	now := time.Now()
-	parentID := now.UnixMilli()
+	parentID := "aaaa"
 	parent := &models.Task{
 		ID:      parentID,
 		Name:    "Parent",
@@ -515,7 +518,7 @@ func TestHasUndoneChildren(t *testing.T) {
 
 	// Add undone child
 	child := &models.Task{
-		ID:      parentID + 1,
+		ID:      "aaab",
 		Name:    "Child",
 		Parent:  &parentID,
 		Status:  models.StatusTodo,
@@ -548,7 +551,7 @@ func TestHasUndoneChildrenRecursive(t *testing.T) {
 	require.NoError(t, store.Init())
 
 	now := time.Now()
-	grandparentID := now.UnixMilli()
+	grandparentID := "aaaa"
 
 	// Create grandparent
 	grandparent := &models.Task{
@@ -561,27 +564,25 @@ func TestHasUndoneChildrenRecursive(t *testing.T) {
 	require.NoError(t, store.SaveTask(grandparent))
 
 	// Create parent (done)
-	time.Sleep(2 * time.Millisecond)
-	parentID := time.Now().UnixMilli()
+	parentID := "aaab"
 	parent := &models.Task{
 		ID:      parentID,
 		Name:    "Parent",
 		Status:  models.StatusDone,
 		Parent:  &grandparentID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(parent))
 
 	// Create child (undone)
-	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaac",
 		Name:    "Child",
 		Status:  models.StatusTodo,
 		Parent:  &parentID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child))
 
@@ -600,7 +601,7 @@ func TestOrphanChildren(t *testing.T) {
 	require.NoError(t, store.Init())
 
 	now := time.Now()
-	parentID := now.UnixMilli()
+	parentID := "aaaa"
 
 	// Create parent
 	parent := &models.Task{
@@ -613,25 +614,23 @@ func TestOrphanChildren(t *testing.T) {
 	require.NoError(t, store.SaveTask(parent))
 
 	// Create two children
-	time.Sleep(2 * time.Millisecond)
 	child1 := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Child 1",
 		Status:  models.StatusDone,
 		Parent:  &parentID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child1))
 
-	time.Sleep(2 * time.Millisecond)
 	child2 := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaac",
 		Name:    "Child 2",
 		Status:  models.StatusDone,
 		Parent:  &parentID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child2))
 
@@ -764,7 +763,7 @@ func TestDeleteTaskNotFound(t *testing.T) {
 	require.NoError(t, store.Init())
 
 	// Delete non-existent task
-	err = store.DeleteTask(999999999)
+	err = store.DeleteTask("zzzz")
 	assert.Equal(t, ErrTaskNotFound, err)
 }
 
@@ -778,9 +777,10 @@ func TestDeleteTaskWithMultipleTasks(t *testing.T) {
 
 	// Create multiple tasks
 	now := time.Now()
-	for i := 0; i < 5; i++ {
+	ids := []string{"aaaa", "aaab", "aaac", "aaad", "aaae"}
+	for _, id := range ids {
 		task := &models.Task{
-			ID:      now.UnixMilli() + int64(i),
+			ID:      id,
 			Name:    "Task",
 			Status:  models.StatusTodo,
 			Created: now,
@@ -790,7 +790,7 @@ func TestDeleteTaskWithMultipleTasks(t *testing.T) {
 	}
 
 	// Delete middle task
-	err = store.DeleteTask(now.UnixMilli() + 2)
+	err = store.DeleteTask("aaac")
 	require.NoError(t, err)
 
 	// Verify 4 tasks remain
@@ -808,7 +808,7 @@ func TestLoadTaskNotFound(t *testing.T) {
 	require.NoError(t, store.Init())
 
 	// Load non-existent task
-	_, err = store.LoadTask(999999999)
+	_, err = store.LoadTask("zzzz")
 	assert.Equal(t, ErrTaskNotFound, err)
 }
 
@@ -821,7 +821,53 @@ func TestGetChildrenEmpty(t *testing.T) {
 	require.NoError(t, store.Init())
 
 	// Get children of non-existent task
-	children, err := store.GetChildren(999999999)
+	children, err := store.GetChildren("zzzz")
 	require.NoError(t, err)
 	assert.Len(t, children, 0)
+}
+
+func TestGenerateTaskID(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	// Generate a few IDs and check they are valid
+	for i := 0; i < 10; i++ {
+		id, err := store.GenerateTaskID()
+		require.NoError(t, err)
+		assert.True(t, models.IsValidTaskID(id), "Generated ID %q should be valid", id)
+	}
+}
+
+func TestGenerateTaskID_Collision(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	store := NewStorageAt(tmpDir)
+	require.NoError(t, store.Init())
+
+	// Generate several IDs and ensure uniqueness
+	generated := make(map[string]bool)
+	for i := 0; i < 100; i++ {
+		id, err := store.GenerateTaskID()
+		require.NoError(t, err)
+
+		// Create a task with this ID to force collision checking
+		task := &models.Task{
+			ID:      id,
+			Name:    "Task",
+			Status:  models.StatusTodo,
+			Created: time.Now(),
+			Updated: time.Now(),
+		}
+		require.NoError(t, store.SaveTask(task))
+		generated[id] = true
+	}
+
+	// All IDs should be unique
+	assert.Len(t, generated, 100)
 }

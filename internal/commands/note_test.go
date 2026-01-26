@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -20,7 +19,7 @@ func TestNoteCommand(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -29,7 +28,7 @@ func TestNoteCommand(t *testing.T) {
 	require.NoError(t, store.SaveTask(task))
 
 	notePretty = false
-	err = runNote(nil, []string{fmt.Sprintf("%d", task.ID), "Started investigation"})
+	err = runNote(nil, []string{task.ID, "Started investigation"})
 	require.NoError(t, err)
 
 	updated, err := store.LoadTask(task.ID)
@@ -48,7 +47,7 @@ func TestNoteCommand_MultipleNotes(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -58,11 +57,11 @@ func TestNoteCommand_MultipleNotes(t *testing.T) {
 
 	notePretty = false
 
-	err = runNote(nil, []string{fmt.Sprintf("%d", task.ID), "First note"})
+	err = runNote(nil, []string{task.ID, "First note"})
 	require.NoError(t, err)
 
 	time.Sleep(2 * time.Millisecond)
-	err = runNote(nil, []string{fmt.Sprintf("%d", task.ID), "Second note"})
+	err = runNote(nil, []string{task.ID, "Second note"})
 	require.NoError(t, err)
 
 	updated, err := store.LoadTask(task.ID)
@@ -80,7 +79,7 @@ func TestNoteCommand_TaskNotFound(t *testing.T) {
 	defer cleanup()
 
 	notePretty = false
-	err := runNote(nil, []string{"999999999999", "Note message"})
+	err := runNote(nil, []string{"zzzz", "Note message"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -90,7 +89,7 @@ func TestNoteCommand_InvalidID(t *testing.T) {
 	defer cleanup()
 
 	notePretty = false
-	err := runNote(nil, []string{"not-a-number", "Note message"})
+	err := runNote(nil, []string{"not-valid", "Note message"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid task ID")
 }
@@ -104,7 +103,7 @@ func TestNoteCommand_EmptyMessage(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -113,7 +112,7 @@ func TestNoteCommand_EmptyMessage(t *testing.T) {
 	require.NoError(t, store.SaveTask(task))
 
 	notePretty = false
-	err = runNote(nil, []string{fmt.Sprintf("%d", task.ID), ""})
+	err = runNote(nil, []string{task.ID, ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "empty")
 }
@@ -127,7 +126,7 @@ func TestNoteCommand_Pretty(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Test Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -136,6 +135,6 @@ func TestNoteCommand_Pretty(t *testing.T) {
 	require.NoError(t, store.SaveTask(task))
 
 	notePretty = true
-	err = runNote(nil, []string{fmt.Sprintf("%d", task.ID), "Test note"})
+	err = runNote(nil, []string{task.ID, "Test note"})
 	require.NoError(t, err)
 }

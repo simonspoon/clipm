@@ -2,7 +2,6 @@ package commands
 
 import (
 	"os"
-	"strconv"
 	"testing"
 
 	"github.com/simonspoon/clipm/internal/models"
@@ -25,7 +24,7 @@ func TestShowCommand(t *testing.T) {
 	showPretty = false
 
 	// Test show command
-	err = runShow(nil, []string{strconv.FormatInt(taskID, 10)})
+	err = runShow(nil, []string{taskID})
 	require.NoError(t, err)
 }
 
@@ -52,7 +51,7 @@ func TestShowCommandWithAllFields(t *testing.T) {
 	showPretty = false
 
 	// Show the task - just verify it doesn't error
-	err = runShow(nil, []string{strconv.FormatInt(taskID, 10)})
+	err = runShow(nil, []string{taskID})
 	require.NoError(t, err)
 }
 
@@ -64,7 +63,7 @@ func TestShowCommandTaskNotFound(t *testing.T) {
 	showPretty = false
 
 	// Test show non-existent task
-	err := runShow(nil, []string{"999999999999"})
+	err := runShow(nil, []string{"zzzz"})
 	assert.Error(t, err)
 }
 
@@ -75,8 +74,8 @@ func TestShowCommandInvalidID(t *testing.T) {
 	// Reset flag
 	showPretty = false
 
-	// Test show with invalid ID
-	err := runShow(nil, []string{"not-a-number"})
+	// Test show with invalid ID (wrong length)
+	err := runShow(nil, []string{"not-valid"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid task ID")
 }
@@ -97,6 +96,6 @@ func TestShowCommandNotInProject(t *testing.T) {
 	showPretty = false
 
 	// Test show should fail
-	err = runShow(nil, []string{"123456789"})
+	err = runShow(nil, []string{"aaaa"})
 	assert.Error(t, err)
 }

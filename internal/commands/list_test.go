@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var taskIDCounter int64 = 1000000000000
-
-func createTestTask(t *testing.T, store *storage.Storage, name, status string, parent *int64) int64 {
+func createTestTask(t *testing.T, store *storage.Storage, name, status string, parent *string) string {
 	now := time.Now()
-	taskIDCounter++
+	id, err := store.GenerateTaskID()
+	require.NoError(t, err)
+
 	task := &models.Task{
-		ID:      taskIDCounter,
+		ID:      id,
 		Name:    name,
 		Status:  status,
 		Parent:  parent,
@@ -24,7 +24,7 @@ func createTestTask(t *testing.T, store *storage.Storage, name, status string, p
 		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(task))
-	return task.ID
+	return id
 }
 
 func TestListCommand(t *testing.T) {

@@ -29,7 +29,7 @@ func TestPruneCommand_NoCompletedTasks(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Todo Task",
 		Status:  models.StatusTodo,
 		Created: now,
@@ -59,7 +59,7 @@ func TestPruneCommand_DeletesCompletedTasks(t *testing.T) {
 
 	// Create done task
 	doneTask := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Done Task",
 		Status:  models.StatusDone,
 		Created: now,
@@ -68,13 +68,12 @@ func TestPruneCommand_DeletesCompletedTasks(t *testing.T) {
 	require.NoError(t, store.SaveTask(doneTask))
 
 	// Create todo task
-	time.Sleep(2 * time.Millisecond)
 	todoTask := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Todo Task",
 		Status:  models.StatusTodo,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(todoTask))
 
@@ -100,8 +99,9 @@ func TestPruneCommand_SkipsTasksWithUndoneChildren(t *testing.T) {
 	now := time.Now()
 
 	// Create done parent
+	parentID := "aaaa"
 	parent := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      parentID,
 		Name:    "Done Parent",
 		Status:  models.StatusDone,
 		Created: now,
@@ -110,14 +110,13 @@ func TestPruneCommand_SkipsTasksWithUndoneChildren(t *testing.T) {
 	require.NoError(t, store.SaveTask(parent))
 
 	// Create undone child
-	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Todo Child",
 		Status:  models.StatusTodo,
-		Parent:  &parent.ID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Parent:  &parentID,
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child))
 
@@ -142,8 +141,9 @@ func TestPruneCommand_DeletesTasksWithDoneChildren(t *testing.T) {
 	now := time.Now()
 
 	// Create done parent
+	parentID := "aaaa"
 	parent := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      parentID,
 		Name:    "Done Parent",
 		Status:  models.StatusDone,
 		Created: now,
@@ -152,14 +152,13 @@ func TestPruneCommand_DeletesTasksWithDoneChildren(t *testing.T) {
 	require.NoError(t, store.SaveTask(parent))
 
 	// Create done child
-	time.Sleep(2 * time.Millisecond)
 	child := &models.Task{
-		ID:      time.Now().UnixMilli(),
+		ID:      "aaab",
 		Name:    "Done Child",
 		Status:  models.StatusDone,
-		Parent:  &parent.ID,
-		Created: time.Now(),
-		Updated: time.Now(),
+		Parent:  &parentID,
+		Created: now,
+		Updated: now,
 	}
 	require.NoError(t, store.SaveTask(child))
 
@@ -183,7 +182,7 @@ func TestPruneCommand_Pretty(t *testing.T) {
 
 	now := time.Now()
 	task := &models.Task{
-		ID:      now.UnixMilli(),
+		ID:      "aaaa",
 		Name:    "Done Task",
 		Status:  models.StatusDone,
 		Created: now,

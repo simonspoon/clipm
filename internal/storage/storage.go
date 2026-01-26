@@ -1,12 +1,14 @@
 package storage
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/simonspoon/clipm/internal/models"
 )
@@ -85,7 +87,7 @@ func (s *Storage) Init() error {
 
 	// Create empty task store
 	store := &TaskStore{
-		Version: "2.0.0",
+		Version: "3.0.0",
 		Tasks:   []models.Task{},
 	}
 	return s.saveStore(store)
@@ -101,7 +103,7 @@ func (s *Storage) LoadAll() ([]models.Task, error) {
 }
 
 // LoadTask loads a task by ID
-func (s *Storage) LoadTask(id int64) (*models.Task, error) {
+func (s *Storage) LoadTask(id string) (*models.Task, error) {
 	store, err := s.loadStore()
 	if err != nil {
 		return nil, err
@@ -140,7 +142,7 @@ func (s *Storage) SaveTask(task *models.Task) error {
 }
 
 // DeleteTask deletes a task by ID
-func (s *Storage) DeleteTask(id int64) error {
+func (s *Storage) DeleteTask(id string) error {
 	store, err := s.loadStore()
 	if err != nil {
 		return err
@@ -165,13 +167,13 @@ func (s *Storage) DeleteTask(id int64) error {
 }
 
 // DeleteTasks deletes multiple tasks by ID
-func (s *Storage) DeleteTasks(ids []int64) error {
+func (s *Storage) DeleteTasks(ids []string) error {
 	store, err := s.loadStore()
 	if err != nil {
 		return err
 	}
 
-	idSet := make(map[int64]bool)
+	idSet := make(map[string]bool)
 	for _, id := range ids {
 		idSet[id] = true
 	}
@@ -188,7 +190,7 @@ func (s *Storage) DeleteTasks(ids []int64) error {
 }
 
 // GetChildren returns all tasks that have the given task as their parent
-func (s *Storage) GetChildren(parentID int64) ([]models.Task, error) {
+func (s *Storage) GetChildren(parentID string) ([]models.Task, error) {
 	store, err := s.loadStore()
 	if err != nil {
 		return nil, err
@@ -283,7 +285,7 @@ func filterUnclaimed(tasks []models.Task) []models.Task {
 // getDeepestInProgress finds the in-progress task that has no in-progress children
 func getDeepestInProgress(tasks []models.Task) *models.Task {
 	// Build map of tasks that have in-progress children
-	hasInProgressChild := make(map[int64]bool)
+	hasInProgressChild := make(map[string]bool)
 	for i := range tasks {
 		if tasks[i].Status == models.StatusInProgress && tasks[i].Parent != nil {
 			hasInProgressChild[*tasks[i].Parent] = true
@@ -303,7 +305,7 @@ func getDeepestInProgress(tasks []models.Task) *models.Task {
 }
 
 // getTodoChildren returns todo tasks that are children of the given task, sorted by created time
-func getTodoChildren(tasks []models.Task, parentID int64, skipBlocked bool) []models.Task {
+func getTodoChildren(tasks []models.Task, parentID string, skipBlocked bool) []models.Task {
 	var children []models.Task
 	for i := range tasks {
 		if tasks[i].Status == models.StatusTodo && tasks[i].Parent != nil && *tasks[i].Parent == parentID {
@@ -320,9 +322,9 @@ func getTodoChildren(tasks []models.Task, parentID int64, skipBlocked bool) []mo
 }
 
 // getTodoSiblings returns todo tasks with the same parent as the given task, sorted by created time
-func getTodoSiblings(tasks []models.Task, taskID int64, skipBlocked bool) []models.Task {
+func getTodoSiblings(tasks []models.Task, taskID string, skipBlocked bool) []models.Task {
 	// Find the task to get its parent
-	var targetParent *int64
+	var targetParent *string
 	for i := range tasks {
 		if tasks[i].ID == taskID {
 			targetParent = tasks[i].Parent
@@ -387,7 +389,7 @@ func isTaskBlocked(task *models.Task, allTasks []models.Task) bool {
 }
 
 // findTask finds a task by ID
-func findTask(tasks []models.Task, id int64) *models.Task {
+func findTask(tasks []models.Task, id string) *models.Task {
 	for i := range tasks {
 		if tasks[i].ID == id {
 			return &tasks[i]
@@ -397,7 +399,7 @@ func findTask(tasks []models.Task, id int64) *models.Task {
 }
 
 // HasUndoneChildren checks recursively if a task has any descendants that are not done
-func (s *Storage) HasUndoneChildren(parentID int64) (bool, error) {
+func (s *Storage) HasUndoneChildren(parentID string) (bool, error) {
 	children, err := s.GetChildren(parentID)
 	if err != nil {
 		return false, err
@@ -420,7 +422,7 @@ func (s *Storage) HasUndoneChildren(parentID int64) (bool, error) {
 }
 
 // OrphanChildren sets Parent to nil for all direct children of the given task
-func (s *Storage) OrphanChildren(parentID int64) error {
+func (s *Storage) OrphanChildren(parentID string) error {
 	store, err := s.loadStore()
 	if err != nil {
 		return err
@@ -435,6 +437,26 @@ func (s *Storage) OrphanChildren(parentID int64) error {
 	return s.saveStore(store)
 }
 
+// LegacyTask represents a task with int64 IDs (v2.0.0 format)
+type LegacyTask struct {
+	ID          int64         `json:"id"`
+	Name        string        `json:"name"`
+	Description string        `json:"description,omitempty"`
+	Parent      *int64        `json:"parent"`
+	Status      string        `json:"status"`
+	BlockedBy   []int64       `json:"blockedBy,omitempty"`
+	Owner       *string       `json:"owner,omitempty"`
+	Notes       []models.Note `json:"notes,omitempty"`
+	Created     string        `json:"created"`
+	Updated     string        `json:"updated"`
+}
+
+// LegacyTaskStore represents the v2.0.0 format
+type LegacyTaskStore struct {
+	Version string       `json:"version"`
+	Tasks   []LegacyTask `json:"tasks"`
+}
+
 // loadStore reads the tasks.json file
 func (s *Storage) loadStore() (*TaskStore, error) {
 	storePath := filepath.Join(s.rootDir, ClipmDir, TasksFile)
@@ -442,9 +464,22 @@ func (s *Storage) loadStore() (*TaskStore, error) {
 	data, err := os.ReadFile(storePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &TaskStore{Version: "2.0.0", Tasks: []models.Task{}}, nil
+			return &TaskStore{Version: "3.0.0", Tasks: []models.Task{}}, nil
 		}
 		return nil, fmt.Errorf("failed to read tasks file: %w", err)
+	}
+
+	// First, check the version
+	var versionCheck struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &versionCheck); err != nil {
+		return nil, fmt.Errorf("failed to parse tasks file: %w", err)
+	}
+
+	// If v2.0.0, migrate to v3.0.0
+	if versionCheck.Version == "2.0.0" {
+		return s.migrateFromV2(data)
 	}
 
 	var store TaskStore
@@ -453,6 +488,83 @@ func (s *Storage) loadStore() (*TaskStore, error) {
 	}
 
 	return &store, nil
+}
+
+// migrateFromV2 migrates from v2.0.0 (int64 IDs) to v3.0.0 (string IDs)
+func (s *Storage) migrateFromV2(data []byte) (*TaskStore, error) {
+	var legacy LegacyTaskStore
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return nil, fmt.Errorf("failed to parse legacy tasks file: %w", err)
+	}
+
+	// Create backup before migration
+	storePath := filepath.Join(s.rootDir, ClipmDir, TasksFile)
+	backupPath := storePath + ".bak"
+	if err := os.WriteFile(backupPath, data, 0644); err != nil {
+		return nil, fmt.Errorf("failed to create backup: %w", err)
+	}
+
+	// Build mapping from old int64 IDs to new string IDs
+	idMapping := make(map[int64]string)
+	existingIDs := make(map[string]bool)
+
+	for i := range legacy.Tasks {
+		newID := generateRandomAlphaID()
+		for existingIDs[newID] {
+			newID = generateRandomAlphaID()
+		}
+		idMapping[legacy.Tasks[i].ID] = newID
+		existingIDs[newID] = true
+	}
+
+	// Convert tasks
+	newTasks := make([]models.Task, len(legacy.Tasks))
+	for i := range legacy.Tasks {
+		lt := &legacy.Tasks[i]
+		var parent *string
+		if lt.Parent != nil {
+			newParent := idMapping[*lt.Parent]
+			parent = &newParent
+		}
+
+		var blockedBy []string
+		for _, oldBlocker := range lt.BlockedBy {
+			if newID, ok := idMapping[oldBlocker]; ok {
+				blockedBy = append(blockedBy, newID)
+			}
+		}
+
+		newTasks[i] = models.Task{
+			ID:          idMapping[lt.ID],
+			Name:        lt.Name,
+			Description: lt.Description,
+			Parent:      parent,
+			Status:      lt.Status,
+			BlockedBy:   blockedBy,
+			Owner:       lt.Owner,
+			Notes:       lt.Notes,
+		}
+
+		// Parse timestamps
+		if created, err := parseTimestamp(lt.Created); err == nil {
+			newTasks[i].Created = created
+		}
+		if updated, err := parseTimestamp(lt.Updated); err == nil {
+			newTasks[i].Updated = updated
+		}
+	}
+
+	store := &TaskStore{
+		Version: "3.0.0",
+		Tasks:   newTasks,
+	}
+
+	// Save migrated store
+	if err := s.saveStore(store); err != nil {
+		return nil, fmt.Errorf("failed to save migrated store: %w", err)
+	}
+
+	return store, nil
 }
 
 // saveStore writes the tasks.json file
@@ -497,7 +609,7 @@ func (s *Storage) IsBlocked(task *models.Task) (bool, error) {
 }
 
 // WouldCreateCycle checks if adding blockerID to blockedID's BlockedBy would create a cycle
-func (s *Storage) WouldCreateCycle(blockerID, blockedID int64) (bool, error) {
+func (s *Storage) WouldCreateCycle(blockerID, blockedID string) (bool, error) {
 	store, err := s.loadStore()
 	if err != nil {
 		return false, err
@@ -505,8 +617,8 @@ func (s *Storage) WouldCreateCycle(blockerID, blockedID int64) (bool, error) {
 
 	// BFS from blockerID following BlockedBy chains
 	// If we reach blockedID, adding this dependency would create a cycle
-	visited := make(map[int64]bool)
-	queue := []int64{blockerID}
+	visited := make(map[string]bool)
+	queue := []string{blockerID}
 
 	for len(queue) > 0 {
 		current := queue[0]
@@ -535,7 +647,7 @@ func (s *Storage) WouldCreateCycle(blockerID, blockedID int64) (bool, error) {
 }
 
 // RemoveFromAllBlockedBy removes taskID from all tasks' BlockedBy lists
-func (s *Storage) RemoveFromAllBlockedBy(taskID int64) error {
+func (s *Storage) RemoveFromAllBlockedBy(taskID string) error {
 	store, err := s.loadStore()
 	if err != nil {
 		return err
@@ -543,7 +655,7 @@ func (s *Storage) RemoveFromAllBlockedBy(taskID int64) error {
 
 	modified := false
 	for i := range store.Tasks {
-		newBlockedBy := make([]int64, 0, len(store.Tasks[i].BlockedBy))
+		newBlockedBy := make([]string, 0, len(store.Tasks[i].BlockedBy))
 		for _, id := range store.Tasks[i].BlockedBy {
 			if id != taskID {
 				newBlockedBy = append(newBlockedBy, id)
@@ -558,4 +670,50 @@ func (s *Storage) RemoveFromAllBlockedBy(taskID int64) error {
 		return s.saveStore(store)
 	}
 	return nil
+}
+
+// GenerateTaskID generates a unique 4-character alphabetic ID
+func (s *Storage) GenerateTaskID() (string, error) {
+	store, err := s.loadStore()
+	if err != nil {
+		return "", err
+	}
+
+	// Build set of existing IDs
+	existingIDs := make(map[string]bool)
+	for i := range store.Tasks {
+		existingIDs[store.Tasks[i].ID] = true
+	}
+
+	// Generate new ID with collision checking
+	for attempts := 0; attempts < 100; attempts++ {
+		id := generateRandomAlphaID()
+		if !existingIDs[id] {
+			return id, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to generate unique task ID after 100 attempts")
+}
+
+// generateRandomAlphaID generates a random 4-character lowercase alphabetic string
+func generateRandomAlphaID() string {
+	const letters = "abcdefghijklmnopqrstuvwxyz"
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to less random but still functional
+		for i := range b {
+			b[i] = letters[i%26]
+		}
+		return string(b)
+	}
+	for i := range b {
+		b[i] = letters[int(b[i])%26]
+	}
+	return string(b)
+}
+
+// parseTimestamp parses a timestamp string from JSON
+func parseTimestamp(s string) (time.Time, error) {
+	return time.Parse(time.RFC3339Nano, s)
 }
