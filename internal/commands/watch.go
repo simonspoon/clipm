@@ -9,7 +9,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/simonspoon/clipm/internal/models"
 	"github.com/simonspoon/clipm/internal/storage"
 	"github.com/spf13/cobra"
@@ -201,38 +200,24 @@ func clearAndRender(tasks []models.Task) {
 		return
 	}
 
-	// Group by status
-	grouped := make(map[string][]models.Task)
+	// Build task map for tree rendering
+	taskMap := make(map[string]models.Task)
 	for i := range tasks {
-		grouped[tasks[i].Status] = append(grouped[tasks[i].Status], tasks[i])
+		taskMap[tasks[i].ID] = tasks[i]
 	}
 
-	// Status order
-	statuses := []string{
-		models.StatusTodo,
-		models.StatusInProgress,
-		models.StatusDone,
-	}
-
-	// Colors
-	statusColors := map[string]*color.Color{
-		models.StatusTodo:       color.New(color.FgWhite),
-		models.StatusInProgress: color.New(color.FgYellow),
-		models.StatusDone:       color.New(color.FgGreen),
-	}
-
-	for _, status := range statuses {
-		group := grouped[status]
-		if len(group) == 0 {
-			continue
+	// Find root tasks
+	var roots []models.Task
+	for i := range tasks {
+		if tasks[i].Parent == nil {
+			roots = append(roots, tasks[i])
 		}
+	}
 
-		statusColor := statusColors[status]
-		statusColor.Printf("\n%s (%d)\n", status, len(group))
-
-		for i := range group {
-			fmt.Printf("  %s  %s\n", group[i].ID, group[i].Name)
-		}
+	// Print tree for each root
+	for i := range roots {
+		isLast := i == len(roots)-1
+		printTaskTree(&roots[i], taskMap, "", isLast)
 	}
 }
 
