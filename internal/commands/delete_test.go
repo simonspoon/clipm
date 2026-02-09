@@ -213,6 +213,49 @@ func TestDeleteCommand_BlockedByUndoneGrandchildren(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestDeleteCommand_CleansUpBlockedBy(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+
+	// Create blocker task
+	blocker := &models.Task{
+		ID:      "aaaa",
+		Name:    "Blocker Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(blocker))
+
+	// Create blocked task
+	blocked := &models.Task{
+		ID:        "aaab",
+		Name:      "Blocked Task",
+		Status:    models.StatusTodo,
+		BlockedBy: []string{"aaaa"},
+		Created:   now,
+		Updated:   now,
+	}
+	require.NoError(t, store.SaveTask(blocked))
+
+	// Reset flag
+	deletePretty = false
+
+	// Delete the blocker
+	err = runDelete(nil, []string{blocker.ID})
+	require.NoError(t, err)
+
+	// Verify blocked task's BlockedBy is cleaned up
+	updated, err := store.LoadTask(blocked.ID)
+	require.NoError(t, err)
+	assert.Empty(t, updated.BlockedBy)
+}
+
 func TestDeleteCommand_PrettyOutput(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()

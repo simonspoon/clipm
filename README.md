@@ -26,12 +26,12 @@ clipm init
 
 # Add tasks
 clipm add "Implement user authentication"
-clipm add "Add login endpoint" --parent <task-id>
+clipm add "Add login endpoint" --parent <task-id> -d "REST endpoint for user login"
 
 # View tasks
 clipm list                    # JSON output
 clipm list --pretty           # Human-readable output
-clipm tree --pretty           # Hierarchical view
+clipm tree                    # Hierarchical view (pretty by default)
 
 # Update task status
 clipm status <task-id> in-progress
@@ -49,7 +49,7 @@ clipm watch --pretty
 | Command | Description |
 |---------|-------------|
 | `init` | Initialize clipm in the current directory |
-| `add <name>` | Add a new task (use `--parent` for subtasks) |
+| `add <name>` | Add a new task (`--parent`, `--description`/`-d`) |
 | `list` | List all tasks |
 | `tree` | Display tasks in a tree structure |
 | `show <id>` | Show details for a specific task |

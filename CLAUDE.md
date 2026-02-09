@@ -74,6 +74,7 @@ All commands default to JSON output. Use `--pretty` flag for human-readable outp
   - Returns `{"task": ...}` when context exists, `{"candidates": [...]}` when no in-progress tasks
   - Always skips blocked tasks; use `--unclaimed` to also skip owned tasks
 - Tasks cannot be marked `done` if they have undone children
+- Tasks cannot be set to `in-progress` if they are blocked
 - Cannot add children to `done` tasks
 - `delete` orphans children (sets their Parent to nil)
 - `prune` removes all `done` tasks

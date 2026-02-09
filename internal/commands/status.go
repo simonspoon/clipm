@@ -55,15 +55,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// If marking as done, check that all children are done
-	if newStatus == models.StatusDone {
-		hasUndone, err := store.HasUndoneChildren(id)
-		if err != nil {
-			return err
-		}
-		if hasUndone {
-			return fmt.Errorf("cannot mark task as done: has undone children")
-		}
+	// Validate transition constraints
+	if err := validateStatusTransition(store, task, newStatus); err != nil {
+		return err
 	}
 
 	// Update status and timestamp
@@ -88,6 +82,30 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	} else {
 		out, _ := json.Marshal(task)
 		fmt.Println(string(out))
+	}
+
+	return nil
+}
+
+func validateStatusTransition(store *storage.Storage, task *models.Task, newStatus string) error {
+	if newStatus == models.StatusInProgress {
+		blocked, err := store.IsBlocked(task)
+		if err != nil {
+			return err
+		}
+		if blocked {
+			return fmt.Errorf("cannot start task %s: blocked by %v", task.ID, task.BlockedBy)
+		}
+	}
+
+	if newStatus == models.StatusDone {
+		hasUndone, err := store.HasUndoneChildren(task.ID)
+		if err != nil {
+			return err
+		}
+		if hasUndone {
+			return fmt.Errorf("cannot mark task as done: has undone children")
+		}
 	}
 
 	return nil

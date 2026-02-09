@@ -207,8 +207,9 @@ func (s *Storage) GetChildren(parentID string) ([]models.Task, error) {
 
 // NextResult represents the result of GetNextTask
 type NextResult struct {
-	Task       *models.Task  `json:"task,omitempty"`
-	Candidates []models.Task `json:"candidates,omitempty"`
+	Task         *models.Task  `json:"task,omitempty"`
+	Candidates   []models.Task `json:"candidates,omitempty"`
+	BlockedCount int           `json:"blockedCount,omitempty"`
 }
 
 // GetNextTask returns the next task using depth-first traversal.
@@ -234,7 +235,11 @@ func (s *Storage) GetNextTaskFiltered(unclaimedOnly bool) (*NextResult, error) {
 		if unclaimedOnly {
 			candidates = filterUnclaimed(candidates)
 		}
-		return &NextResult{Candidates: candidates}, nil
+		result := &NextResult{Candidates: candidates}
+		if len(candidates) == 0 {
+			result.BlockedCount = countBlockedTodos(store.Tasks)
+		}
+		return result, nil
 	}
 
 	// Walk up from deepest, looking for todo children first, then siblings
@@ -268,7 +273,7 @@ func (s *Storage) GetNextTaskFiltered(unclaimedOnly bool) (*NextResult, error) {
 		}
 		current = parent
 	}
-	return &NextResult{}, nil
+	return &NextResult{BlockedCount: countBlockedTodos(store.Tasks)}, nil
 }
 
 // filterUnclaimed removes tasks that have an owner
@@ -372,6 +377,17 @@ func getRootTodos(tasks []models.Task, skipBlocked bool) []models.Task {
 		return roots[i].Created.Before(roots[j].Created)
 	})
 	return roots
+}
+
+// countBlockedTodos counts todo tasks that are blocked by incomplete dependencies
+func countBlockedTodos(tasks []models.Task) int {
+	count := 0
+	for i := range tasks {
+		if tasks[i].Status == models.StatusTodo && isTaskBlocked(&tasks[i], tasks) {
+			count++
+		}
+	}
+	return count
 }
 
 // isTaskBlocked checks if any task in BlockedBy is not done

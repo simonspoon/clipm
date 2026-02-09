@@ -127,6 +127,52 @@ func TestNextCommand_SkipsNonTodoTasks(t *testing.T) {
 	assert.Equal(t, "Todo Task", next.Task.Name)
 }
 
+func TestNextCommand_ReportsBlockedCount(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+
+	// Create a blocker task (in-progress)
+	blocker := &models.Task{
+		ID:      "aaaa",
+		Name:    "Blocker",
+		Status:  models.StatusInProgress,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(blocker))
+
+	// Create 3 blocked todo tasks
+	for i, id := range []string{"aaab", "aaac", "aaad"} {
+		task := &models.Task{
+			ID:        id,
+			Name:      "Blocked Task",
+			Status:    models.StatusTodo,
+			BlockedBy: []string{"aaaa"},
+			Created:   now.Add(time.Duration(i+1) * time.Millisecond),
+			Updated:   now.Add(time.Duration(i+1) * time.Millisecond),
+		}
+		require.NoError(t, store.SaveTask(task))
+	}
+
+	// next should return empty result with blocked count
+	result, err := store.GetNextTask()
+	require.NoError(t, err)
+	assert.Nil(t, result.Task)
+	assert.Empty(t, result.Candidates)
+	assert.Equal(t, 3, result.BlockedCount)
+
+	// Also test via runNext (pretty)
+	nextPretty = true
+	nextUnclaimed = false
+	err = runNext(nil, nil)
+	require.NoError(t, err)
+}
+
 func TestNextCommand_Pretty(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()

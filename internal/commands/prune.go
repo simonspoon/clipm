@@ -71,6 +71,13 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Clean up BlockedBy references before deleting
+	for _, id := range toPrune {
+		if err := store.RemoveFromAllBlockedBy(id); err != nil {
+			return err
+		}
+	}
+
 	// Delete the tasks
 	if err := store.DeleteTasks(toPrune); err != nil {
 		return err

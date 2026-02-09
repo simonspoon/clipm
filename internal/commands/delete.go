@@ -65,6 +65,11 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Remove from all BlockedBy lists (mirrors done behavior in status.go)
+	if err := store.RemoveFromAllBlockedBy(id); err != nil {
+		return err
+	}
+
 	// Delete the task
 	if err := store.DeleteTask(id); err != nil {
 		return err

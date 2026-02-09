@@ -25,6 +25,18 @@ func init() {
 	showCmd.Flags().BoolVar(&showPretty, "pretty", false, "Pretty print output")
 }
 
+type blockerInfo struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+type showResult struct {
+	*models.Task
+	Blockers []blockerInfo `json:"blockers,omitempty"`
+	Blocks   []blockerInfo `json:"blocks,omitempty"`
+}
+
 func runShow(cmd *cobra.Command, args []string) error {
 	// Normalize and validate task ID
 	id := models.NormalizeTaskID(args[0])
@@ -44,17 +56,64 @@ func runShow(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Load all tasks for dependency resolution
+	allTasks, err := store.LoadAll()
+	if err != nil {
+		return err
+	}
+
+	// Resolve blockers: for each ID in BlockedBy, resolve to {id, name, status}
+	var blockers []blockerInfo
+	for _, blockerID := range task.BlockedBy {
+		if info := findBlockerInfo(allTasks, blockerID); info != nil {
+			blockers = append(blockers, *info)
+		}
+	}
+
+	// Reverse lookup: find all tasks whose BlockedBy contains this task's ID
+	var blocks []blockerInfo
+	for i := range allTasks {
+		for _, depID := range allTasks[i].BlockedBy {
+			if depID == id {
+				blocks = append(blocks, blockerInfo{
+					ID:     allTasks[i].ID,
+					Name:   allTasks[i].Name,
+					Status: allTasks[i].Status,
+				})
+				break
+			}
+		}
+	}
+
 	if showPretty {
-		printTaskDetails(task)
+		printTaskDetails(task, blockers, blocks)
 	} else {
-		out, _ := json.Marshal(task)
+		result := showResult{
+			Task:     task,
+			Blockers: blockers,
+			Blocks:   blocks,
+		}
+		out, _ := json.Marshal(result)
 		fmt.Println(string(out))
 	}
 
 	return nil
 }
 
-func printTaskDetails(task *models.Task) {
+func findBlockerInfo(tasks []models.Task, id string) *blockerInfo {
+	for i := range tasks {
+		if tasks[i].ID == id {
+			return &blockerInfo{
+				ID:     tasks[i].ID,
+				Name:   tasks[i].Name,
+				Status: tasks[i].Status,
+			}
+		}
+	}
+	return nil
+}
+
+func printTaskDetails(task *models.Task, blockers, blocks []blockerInfo) {
 	cyan := color.New(color.FgCyan, color.Bold)
 	white := color.New(color.FgWhite)
 	gray := color.New(color.FgHiBlack)
@@ -84,8 +143,20 @@ func printTaskDetails(task *models.Task) {
 		white.Printf("Owner:       %s\n", *task.Owner)
 	}
 
-	if len(task.BlockedBy) > 0 {
-		white.Printf("Blocked by:  %v\n", task.BlockedBy)
+	if len(blockers) > 0 {
+		fmt.Println()
+		yellow.Println("Blocked by:")
+		for _, b := range blockers {
+			white.Printf("  %s - %s (%s)\n", b.ID, b.Name, b.Status)
+		}
+	}
+
+	if len(blocks) > 0 {
+		fmt.Println()
+		yellow.Println("Blocks:")
+		for _, b := range blocks {
+			white.Printf("  %s - %s (%s)\n", b.ID, b.Name, b.Status)
+		}
 	}
 
 	gray.Printf("Created:     %s\n", task.Created.Format("2006-01-02 15:04:05"))

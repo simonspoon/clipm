@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/simonspoon/clipm/internal/models"
 	"github.com/simonspoon/clipm/internal/storage"
@@ -78,6 +80,148 @@ func TestShowCommandInvalidID(t *testing.T) {
 	err := runShow(nil, []string{"not-valid"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid task ID")
+}
+
+func TestShowCommand_BlockedByEnriched(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+
+	// Create blocker task
+	blocker := &models.Task{
+		ID:      "aaaa",
+		Name:    "Design schema",
+		Status:  models.StatusInProgress,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(blocker))
+
+	// Create blocked task
+	blocked := &models.Task{
+		ID:        "aaab",
+		Name:      "Implement API",
+		Status:    models.StatusTodo,
+		BlockedBy: []string{"aaaa"},
+		Created:   now,
+		Updated:   now,
+	}
+	require.NoError(t, store.SaveTask(blocked))
+
+	// Reset flag
+	showPretty = false
+
+	// Capture output by running show
+	// We test the JSON structure by unmarshaling the showResult
+	// Since runShow prints to stdout, we verify the logic via the types directly
+	// But we can verify no error occurs
+	err = runShow(nil, []string{blocked.ID})
+	require.NoError(t, err)
+
+	// Verify enrichment logic directly
+	allTasks, err := store.LoadAll()
+	require.NoError(t, err)
+
+	var blockers []blockerInfo
+	for _, blockerID := range blocked.BlockedBy {
+		if info := findBlockerInfo(allTasks, blockerID); info != nil {
+			blockers = append(blockers, *info)
+		}
+	}
+
+	require.Len(t, blockers, 1)
+	assert.Equal(t, "aaaa", blockers[0].ID)
+	assert.Equal(t, "Design schema", blockers[0].Name)
+	assert.Equal(t, models.StatusInProgress, blockers[0].Status)
+
+	// Verify JSON output structure
+	result := showResult{
+		Task:     blocked,
+		Blockers: blockers,
+	}
+	out, err := json.Marshal(result)
+	require.NoError(t, err)
+
+	var parsed map[string]interface{}
+	require.NoError(t, json.Unmarshal(out, &parsed))
+	assert.Contains(t, parsed, "blockers")
+	assert.Contains(t, parsed, "blockedBy")
+}
+
+func TestShowCommand_BlocksReverseLookup(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+
+	// Create the blocker task
+	blocker := &models.Task{
+		ID:      "aaaa",
+		Name:    "Design schema",
+		Status:  models.StatusInProgress,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(blocker))
+
+	// Create two tasks blocked by the blocker
+	blocked1 := &models.Task{
+		ID:        "aaab",
+		Name:      "Implement API",
+		Status:    models.StatusTodo,
+		BlockedBy: []string{"aaaa"},
+		Created:   now,
+		Updated:   now,
+	}
+	require.NoError(t, store.SaveTask(blocked1))
+
+	blocked2 := &models.Task{
+		ID:        "aaac",
+		Name:      "Write tests",
+		Status:    models.StatusTodo,
+		BlockedBy: []string{"aaaa"},
+		Created:   now,
+		Updated:   now,
+	}
+	require.NoError(t, store.SaveTask(blocked2))
+
+	// Reset flag
+	showPretty = false
+
+	// Show the blocker - should list what it blocks
+	err = runShow(nil, []string{blocker.ID})
+	require.NoError(t, err)
+
+	// Verify reverse lookup logic
+	allTasks, err := store.LoadAll()
+	require.NoError(t, err)
+
+	var blocks []blockerInfo
+	for i := range allTasks {
+		for _, depID := range allTasks[i].BlockedBy {
+			if depID == blocker.ID {
+				blocks = append(blocks, blockerInfo{
+					ID:     allTasks[i].ID,
+					Name:   allTasks[i].Name,
+					Status: allTasks[i].Status,
+				})
+				break
+			}
+		}
+	}
+
+	require.Len(t, blocks, 2)
+	// Verify both blocked tasks are found
+	ids := []string{blocks[0].ID, blocks[1].ID}
+	assert.Contains(t, ids, "aaab")
+	assert.Contains(t, ids, "aaac")
 }
 
 func TestShowCommandNotInProject(t *testing.T) {

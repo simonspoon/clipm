@@ -175,6 +175,99 @@ func TestStatusCommand_CannotMarkDoneWithUndoneChildren(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStatusCommand_CannotStartBlockedTask(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+
+	// Create blocker task
+	blocker := &models.Task{
+		ID:      "aaaa",
+		Name:    "Blocker Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(blocker))
+
+	// Create blocked task
+	blocked := &models.Task{
+		ID:        "aaab",
+		Name:      "Blocked Task",
+		Status:    models.StatusTodo,
+		BlockedBy: []string{"aaaa"},
+		Created:   now,
+		Updated:   now,
+	}
+	require.NoError(t, store.SaveTask(blocked))
+
+	// Reset flag
+	statusPretty = false
+
+	// Try to start the blocked task - should fail
+	err = runStatus(nil, []string{blocked.ID, models.StatusInProgress})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot start task")
+	assert.Contains(t, err.Error(), "blocked by")
+	assert.Contains(t, err.Error(), "aaaa")
+
+	// Verify task is still todo
+	updated, err := store.LoadTask(blocked.ID)
+	require.NoError(t, err)
+	assert.Equal(t, models.StatusTodo, updated.Status)
+}
+
+func TestStatusCommand_CanStartAfterUnblock(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+
+	// Create blocker task
+	blocker := &models.Task{
+		ID:      "aaaa",
+		Name:    "Blocker Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(blocker))
+
+	// Create blocked task
+	blocked := &models.Task{
+		ID:        "aaab",
+		Name:      "Blocked Task",
+		Status:    models.StatusTodo,
+		BlockedBy: []string{"aaaa"},
+		Created:   now,
+		Updated:   now,
+	}
+	require.NoError(t, store.SaveTask(blocked))
+
+	// Reset flag
+	statusPretty = false
+
+	// Mark blocker as done (auto-removes from BlockedBy lists)
+	err = runStatus(nil, []string{blocker.ID, models.StatusDone})
+	require.NoError(t, err)
+
+	// Now should be able to start the previously blocked task
+	err = runStatus(nil, []string{blocked.ID, models.StatusInProgress})
+	require.NoError(t, err)
+
+	// Verify task is in-progress
+	updated, err := store.LoadTask(blocked.ID)
+	require.NoError(t, err)
+	assert.Equal(t, models.StatusInProgress, updated.Status)
+}
+
 func TestStatusCommand_PrettyOutput(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()

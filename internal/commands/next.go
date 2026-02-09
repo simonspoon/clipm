@@ -76,7 +76,11 @@ func runNext(cmd *cobra.Command, args []string) error {
 
 	// No tasks at all
 	if nextPretty {
-		fmt.Println("No tasks in queue")
+		if result.BlockedCount > 0 {
+			fmt.Printf("No unblocked tasks. %d task(s) blocked.\n", result.BlockedCount)
+		} else {
+			fmt.Println("No tasks in queue")
+		}
 	} else {
 		out, _ := json.Marshal(result)
 		fmt.Println(string(out))
