@@ -73,6 +73,8 @@ All commands default to JSON output. Use `--pretty` flag for human-readable outp
   - Walks up hierarchy when no todos at current level
   - Returns `{"task": ...}` when context exists, `{"candidates": [...]}` when no in-progress tasks
   - Always skips blocked tasks; use `--unclaimed` to also skip owned tasks
+- Completed tasks are hidden by default in `list`, `tree`, and `watch`. A done task is only shown if its parent exists and is not done (i.e., it's a completed subtask of active work). Use `--show-all` to see all tasks including completed.
+- `watch --pretty` renders as a hierarchical tree (same as `tree`)
 - Tasks cannot be marked `done` if they have undone children
 - Tasks cannot be set to `in-progress` if they are blocked
 - Cannot add children to `done` tasks

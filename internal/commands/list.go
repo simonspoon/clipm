@@ -18,6 +18,7 @@ var (
 	listUnclaimed bool
 	listBlocked   bool
 	listUnblocked bool
+	listShowAll   bool
 )
 
 var listCmd = &cobra.Command{
@@ -34,6 +35,7 @@ func init() {
 	listCmd.Flags().BoolVar(&listUnclaimed, "unclaimed", false, "Filter to tasks with no owner")
 	listCmd.Flags().BoolVar(&listBlocked, "blocked", false, "Show only blocked tasks")
 	listCmd.Flags().BoolVar(&listUnblocked, "unblocked", false, "Show only unblocked tasks")
+	listCmd.Flags().BoolVar(&listShowAll, "show-all", false, "Show all tasks including completed")
 }
 
 func runList(cmd *cobra.Command, args []string) error {
@@ -106,6 +108,9 @@ func applyListFilters(tasks []models.Task, store *storage.Storage) ([]models.Tas
 		if err != nil {
 			return nil, err
 		}
+	}
+	if !listShowAll {
+		tasks = filterCompletedTasks(tasks)
 	}
 	return tasks, nil
 }

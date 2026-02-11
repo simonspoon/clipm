@@ -18,6 +18,7 @@ var (
 	watchInterval time.Duration
 	watchPretty   bool
 	watchStatus   string
+	watchShowAll  bool
 )
 
 var watchCmd = &cobra.Command{
@@ -31,6 +32,7 @@ func init() {
 	watchCmd.Flags().DurationVar(&watchInterval, "interval", 500*time.Millisecond, "Polling interval")
 	watchCmd.Flags().BoolVar(&watchPretty, "pretty", false, "Human-readable output (clear & redraw)")
 	watchCmd.Flags().StringVar(&watchStatus, "status", "", "Filter by status (todo|in-progress|done)")
+	watchCmd.Flags().BoolVar(&watchShowAll, "show-all", false, "Show all tasks including completed")
 }
 
 // WatchEvent represents a change event for JSON output
@@ -76,6 +78,10 @@ func runWatch(cmd *cobra.Command, args []string) error {
 			// Filter by status if specified
 			if watchStatus != "" {
 				tasks = filterByStatus(tasks, watchStatus)
+			}
+
+			if !watchShowAll {
+				tasks = filterCompletedTasks(tasks)
 			}
 
 			// Sort by created time

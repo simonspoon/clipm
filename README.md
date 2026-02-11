@@ -51,7 +51,7 @@ clipm watch --pretty
 | `init` | Initialize clipm in the current directory |
 | `add <name>` | Add a new task (`--parent`, `--description`/`-d`) |
 | `list` | List all tasks |
-| `tree` | Display tasks in a tree structure |
+| `tree` | Display tasks in a tree structure (`--show-all`) |
 | `show <id>` | Show details for a specific task |
 | `status <id> <status>` | Update task status (`todo`, `in-progress`, `done`) |
 | `next` | Get the next task to work on |
@@ -68,6 +68,12 @@ clipm watch --pretty
 
 All commands output JSON by default. Use `--pretty` for human-readable output with colors.
 
+### Completed Task Visibility
+
+By default, `list`, `tree`, and `watch` hide "fully resolved" done tasks. A done task is only shown if its parent exists and is not done (i.e., it's a completed subtask of active work). Top-level done tasks and done children of done parents are hidden.
+
+Use `--show-all` on any of these commands to see all tasks including completed.
+
 ### Filtering
 
 The `list` command supports filtering:
@@ -75,6 +81,7 @@ The `list` command supports filtering:
 - `--owner <name>` - Filter by owner
 - `--unclaimed` - Show only unowned tasks
 - `--blocked` / `--unblocked` - Filter by blocked state
+- `--show-all` - Show all tasks including completed
 
 The `next` command supports:
 - `--unclaimed` - Skip tasks that have an owner
@@ -140,11 +147,14 @@ The `watch` command monitors tasks.json for changes and outputs updates in real-
 # JSON mode (default) - outputs newline-delimited events
 clipm watch
 
-# Pretty mode - clears screen and redraws task list
+# Pretty mode - clears screen and redraws hierarchical tree
 clipm watch --pretty
 
 # Filter by status
 clipm watch --status in-progress --pretty
+
+# Show all tasks including completed
+clipm watch --show-all --pretty
 
 # Custom polling interval
 clipm watch --interval 1s

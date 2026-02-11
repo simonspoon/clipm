@@ -12,6 +12,7 @@ import (
 )
 
 var treePretty bool
+var treeShowAll bool
 
 var treeCmd = &cobra.Command{
 	Use:   "tree",
@@ -23,6 +24,7 @@ var treeCmd = &cobra.Command{
 func init() {
 	// tree defaults to pretty since JSON hierarchy is awkward
 	treeCmd.Flags().BoolVar(&treePretty, "pretty", true, "Pretty print output (default true for tree)")
+	treeCmd.Flags().BoolVar(&treeShowAll, "show-all", false, "Show all tasks including completed")
 }
 
 func runTree(cmd *cobra.Command, args []string) error {
@@ -36,6 +38,10 @@ func runTree(cmd *cobra.Command, args []string) error {
 	tasks, err := store.LoadAll()
 	if err != nil {
 		return err
+	}
+
+	if !treeShowAll {
+		tasks = filterCompletedTasks(tasks)
 	}
 
 	if len(tasks) == 0 {
