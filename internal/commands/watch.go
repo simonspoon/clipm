@@ -1,17 +1,20 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/simonspoon/clipm/internal/models"
 	"github.com/simonspoon/clipm/internal/storage"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
@@ -24,7 +27,7 @@ var (
 var watchCmd = &cobra.Command{
 	Use:   "watch",
 	Short: "Watch tasks for changes",
-	Long:  `Continuously monitor tasks and display updates. Use Ctrl+C to exit.`,
+	Long:  `Continuously monitor tasks and display updates. Press q or Ctrl+C to exit.`,
 	RunE:  runWatch,
 }
 
@@ -59,6 +62,12 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
+	// Enter raw mode when pretty-printing to an interactive terminal
+	rawMode, cleanup := setupRawMode(watchPretty, cancel)
+	if cleanup != nil {
+		defer cleanup()
+	}
+
 	ticker := time.NewTicker(watchInterval)
 	defer ticker.Stop()
 
@@ -92,7 +101,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 			currTasks := toTaskMap(tasks)
 
 			if watchPretty {
-				clearAndRender(tasks)
+				clearAndRender(tasks, rawMode)
 			} else {
 				if first {
 					outputSnapshot(tasks)
@@ -190,41 +199,85 @@ func outputChanges(prev, curr map[string]models.Task) {
 	}
 }
 
-func clearAndRender(tasks []models.Task) {
+func clearAndRender(tasks []models.Task, rawMode bool) {
+	var buf bytes.Buffer
+
 	// Clear screen using ANSI escape codes
-	fmt.Print("\033[H\033[2J")
+	fmt.Fprint(&buf, "\033[H\033[2J")
 
 	// Header
-	fmt.Printf("clipm watch - %s\n", time.Now().Format("15:04:05"))
-	fmt.Printf("Tasks: %d todo, %d in-progress, %d done\n\n",
+	fmt.Fprintf(&buf, "clipm watch - %s\n", time.Now().Format("15:04:05"))
+	fmt.Fprintf(&buf, "Tasks: %d todo, %d in-progress, %d done\n\n",
 		countByStatus(tasks, models.StatusTodo),
 		countByStatus(tasks, models.StatusInProgress),
 		countByStatus(tasks, models.StatusDone))
 
 	if len(tasks) == 0 {
-		fmt.Println("No tasks found.")
-		return
-	}
+		fmt.Fprintln(&buf, "No tasks found.")
+	} else {
+		// Build task map for tree rendering
+		taskMap := make(map[string]models.Task)
+		for i := range tasks {
+			taskMap[tasks[i].ID] = tasks[i]
+		}
 
-	// Build task map for tree rendering
-	taskMap := make(map[string]models.Task)
-	for i := range tasks {
-		taskMap[tasks[i].ID] = tasks[i]
-	}
+		// Find root tasks
+		var roots []models.Task
+		for i := range tasks {
+			if tasks[i].Parent == nil {
+				roots = append(roots, tasks[i])
+			}
+		}
 
-	// Find root tasks
-	var roots []models.Task
-	for i := range tasks {
-		if tasks[i].Parent == nil {
-			roots = append(roots, tasks[i])
+		// Print tree for each root
+		for i := range roots {
+			isLast := i == len(roots)-1
+			printTaskTree(&buf, &roots[i], taskMap, "", isLast)
 		}
 	}
 
-	// Print tree for each root
-	for i := range roots {
-		isLast := i == len(roots)-1
-		printTaskTree(&roots[i], taskMap, "", isLast)
+	fmt.Fprintln(&buf, "\nPress q to quit")
+
+	output := buf.String()
+	if rawMode {
+		output = strings.ReplaceAll(output, "\n", "\r\n")
 	}
+	_, _ = fmt.Fprint(os.Stdout, output)
+}
+
+// setupRawMode enters raw terminal mode when pretty-printing to an interactive
+// terminal. It returns whether raw mode is active and a cleanup function to
+// restore the terminal (nil if raw mode was not entered).
+func setupRawMode(pretty bool, cancel context.CancelFunc) (bool, func()) {
+	if !pretty {
+		return false, nil
+	}
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		return false, nil
+	}
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		return false, nil
+	}
+
+	// Read keystrokes in background
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			n, err := os.Stdin.Read(buf)
+			if err != nil || n == 0 {
+				return
+			}
+			switch buf[0] {
+			case 'q', 'Q', 3: // 'q', 'Q', or Ctrl+C
+				cancel()
+				return
+			}
+		}
+	}()
+
+	return true, func() { _ = term.Restore(fd, oldState) }
 }
 
 func countByStatus(tasks []models.Task, status string) int {

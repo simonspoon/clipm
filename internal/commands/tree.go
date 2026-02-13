@@ -3,6 +3,8 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"sort"
 
 	"github.com/fatih/color"
@@ -81,13 +83,13 @@ func runTree(cmd *cobra.Command, args []string) error {
 	// Print tree for each root
 	for i := range roots {
 		isLast := i == len(roots)-1
-		printTaskTree(&roots[i], taskMap, "", isLast)
+		printTaskTree(os.Stdout, &roots[i], taskMap, "", isLast)
 	}
 
 	return nil
 }
 
-func printTaskTree(task *models.Task, taskMap map[string]models.Task, prefix string, isLast bool) {
+func printTaskTree(w io.Writer, task *models.Task, taskMap map[string]models.Task, prefix string, isLast bool) {
 	boldWhite := color.New(color.Bold, color.FgWhite)
 	gray := color.New(color.FgHiBlack)
 	statusColor := getStatusColor(task.Status)
@@ -102,12 +104,12 @@ func printTaskTree(task *models.Task, taskMap map[string]models.Task, prefix str
 	}
 
 	// Format: ID  Name  [STATUS]
-	fmt.Print(prefix + marker)
-	gray.Printf("%s  ", task.ID)
-	boldWhite.Print(task.Name)
-	fmt.Print("  ")
-	statusColor.Printf("[%s]", formatStatus(task.Status))
-	fmt.Println()
+	_, _ = fmt.Fprint(w, prefix+marker)
+	_, _ = gray.Fprintf(w, "%s  ", task.ID)
+	_, _ = boldWhite.Fprint(w, task.Name)
+	_, _ = fmt.Fprint(w, "  ")
+	_, _ = statusColor.Fprintf(w, "[%s]", formatStatus(task.Status))
+	_, _ = fmt.Fprintln(w)
 
 	// Find children
 	var children []models.Task
@@ -134,7 +136,7 @@ func printTaskTree(task *models.Task, taskMap map[string]models.Task, prefix str
 		} else {
 			childPrefix = prefix + "│  "
 		}
-		printTaskTree(&children[i], taskMap, childPrefix, childIsLast)
+		printTaskTree(w, &children[i], taskMap, childPrefix, childIsLast)
 	}
 }
 
