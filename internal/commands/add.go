@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -85,8 +84,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		green := color.New(color.FgGreen)
 		green.Printf("Created task %s: %s\n", task.ID, task.Name)
 	} else {
-		out, _ := json.Marshal(task)
-		fmt.Println(string(out))
+		fmt.Println(task.ID)
 	}
 
 	return nil
