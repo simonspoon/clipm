@@ -58,21 +58,10 @@ clipm add <name> [flags]
 
 **Output (JSON)**
 
-Returns the full task object.
+Outputs only the new task's ID as a plain string (not JSON).
 
-```json
-{
-  "id": "abcd",
-  "name": "My task",
-  "description": "",
-  "parent": null,
-  "status": "todo",
-  "blockedBy": [],
-  "owner": null,
-  "notes": [],
-  "created": "...",
-  "updated": "..."
-}
+```
+abcd
 ```
 
 **Constraints and errors**
