@@ -52,6 +52,9 @@ clipm add <name> [flags]
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
+| `--action` | | *(required)* | What concrete work to perform |
+| `--verify` | | *(required)* | How to confirm the action succeeded |
+| `--result` | | *(required)* | Template for what to report back |
 | `--description` | `-d` | `""` | Task description |
 | `--parent` | | `""` | Parent task ID |
 | `--pretty` | | `false` | Human-readable output |
@@ -66,6 +69,7 @@ abcd
 
 **Constraints and errors**
 
+- `--action`, `--verify`, and `--result` are required.
 - `--parent` must refer to an existing task.
 - Cannot add a child to a task with status `done`.
 
@@ -87,6 +91,7 @@ Valid values for `<status>`: `todo`, `in-progress`, `done`.
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--outcome` | `""` | Actual result to record when marking done |
 | `--pretty` | `false` | Human-readable output |
 
 **Output (JSON)**
@@ -98,6 +103,7 @@ Returns the updated task object.
 - Cannot set a task to `in-progress` if it has incomplete blockers (tasks in its `blockedBy` list that are not `done`).
 - Cannot set a task to `done` if it has children that are not `done`.
 - When a task is marked `done`, it is automatically removed from the `blockedBy` list of all other tasks.
+- Structured tasks (those with `action`, `verify`, and `result` all set) require `--outcome` when marking `done`.
 
 ---
 
@@ -301,6 +307,10 @@ clipm show <id> [flags]
   "id": "abcd",
   "name": "My task",
   "description": "...",
+  "action": "...",
+  "verify": "...",
+  "result": "...",
+  "outcome": "...",
   "parent": null,
   "status": "todo",
   "blockedBy": ["efgh"],

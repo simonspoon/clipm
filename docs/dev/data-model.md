@@ -21,6 +21,10 @@ type Task struct {
     ID          string    `json:"id"`
     Name        string    `json:"name"`
     Description string    `json:"description,omitempty"`
+    Action      string    `json:"action,omitempty"`
+    Verify      string    `json:"verify,omitempty"`
+    Result      string    `json:"result,omitempty"`
+    Outcome     string    `json:"outcome,omitempty"`
     Parent      *string   `json:"parent"`
     Status      string    `json:"status"`
     BlockedBy   []string  `json:"blockedBy,omitempty"`
@@ -36,6 +40,10 @@ type Task struct {
 | `ID` | `string` | `"id"` | 4-character lowercase alphabetic string (e.g. `"abcd"`). Generated via `crypto/rand`. User input is normalized to lowercase via `NormalizeTaskID`. |
 | `Name` | `string` | `"name"` | Task title. Required. |
 | `Description` | `string` | `"description,omitempty"` | Optional free-text details. Omitted from JSON when empty. |
+| `Action` | `string` | `"action,omitempty"` | What concrete work to perform. Required at task creation (v4+). Omitted from JSON when empty. |
+| `Verify` | `string` | `"verify,omitempty"` | How to confirm the action succeeded. Required at task creation (v4+). Omitted from JSON when empty. |
+| `Result` | `string` | `"result,omitempty"` | Template for what to report back when done. Required at task creation (v4+). Omitted from JSON when empty. |
+| `Outcome` | `string` | `"outcome,omitempty"` | Actual result reported when a structured task is marked `done`. Set via `clipm status --outcome`. Omitted from JSON when empty. |
 | `Parent` | `*string` | `"parent"` | Pointer to the parent task's ID. `null` in JSON means the task is a root task. Always present in JSON (not omitempty). |
 | `Status` | `string` | `"status"` | Lifecycle state. One of `"todo"`, `"in-progress"`, `"done"`. |
 | `BlockedBy` | `[]string` | `"blockedBy,omitempty"` | List of task IDs that must reach `"done"` before this task can be started. Omitted from JSON when empty. |
@@ -43,6 +51,14 @@ type Task struct {
 | `Notes` | `[]Note` | `"notes,omitempty"` | Append-only list of timestamped observations. Omitted from JSON when empty. |
 | `Created` | `time.Time` | `"created"` | Creation timestamp. Serialized as RFC3339Nano. |
 | `Updated` | `time.Time` | `"updated"` | Last-modified timestamp. Serialized as RFC3339Nano. |
+
+### HasStructuredFields
+
+```go
+func (t *Task) HasStructuredFields() bool
+```
+
+Returns `true` when `Action`, `Verify`, and `Result` are all non-empty. Used to distinguish v4 structured tasks from legacy (pre-v4) tasks that predate these fields.
 
 ---
 
@@ -101,8 +117,10 @@ type TaskStore struct {
 
 | Field | Go type | JSON tag | Description |
 |-------|---------|----------|-------------|
-| `Version` | `string` | `"version"` | Schema version. Always `"3.0.0"`. |
+| `Version` | `string` | `"version"` | Schema version. Always `"4.0.0"`. |
 | `Tasks` | `[]models.Task` | `"tasks"` | Flat list of all tasks. Relationships (parent/child, blockers) are encoded within each Task. |
+
+**Migration:** On load, v2.0.0 stores are migrated directly to v4.0.0. v3.0.0 stores are migrated to v4.0.0 (new structured fields default to `""`). A `.v3.bak` backup is created before v3→v4 migration.
 
 ---
 
@@ -165,12 +183,15 @@ type WatchEvent struct {
 
 ```json
 {
-  "version": "3.0.0",
+  "version": "4.0.0",
   "tasks": [
     {
       "id": "abcd",
       "name": "Implement authentication",
       "description": "Add JWT-based login and token refresh",
+      "action": "Implement JWT login and token refresh endpoints",
+      "verify": "Run integration tests: go test ./...",
+      "result": "List endpoints added and test results",
       "parent": null,
       "status": "in-progress",
       "blockedBy": [],
@@ -187,6 +208,9 @@ type WatchEvent struct {
     {
       "id": "efgh",
       "name": "Write login handler",
+      "action": "Implement POST /login handler in auth package",
+      "verify": "go test ./internal/auth/... passes",
+      "result": "File path of handler and passing test output",
       "parent": "abcd",
       "status": "todo",
       "created": "2026-02-20T09:01:00.000000000Z",
@@ -195,6 +219,9 @@ type WatchEvent struct {
     {
       "id": "ijkl",
       "name": "Write token refresh handler",
+      "action": "Implement POST /refresh handler in auth package",
+      "verify": "go test ./internal/auth/... passes",
+      "result": "File path of handler and passing test output",
       "parent": "abcd",
       "status": "todo",
       "blockedBy": ["efgh"],

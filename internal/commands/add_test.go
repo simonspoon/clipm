@@ -42,6 +42,9 @@ func TestAddCommand(t *testing.T) {
 	addDescription = ""
 	addParent = ""
 	addPretty = false
+	addAction = "do something"
+	addVerify = "check something"
+	addResult = "report something"
 
 	// Test basic add
 	err := runAdd(nil, []string{"Test Task"})
@@ -70,6 +73,9 @@ func TestAddCommandWithDescription(t *testing.T) {
 	addDescription = "Test description"
 	addParent = ""
 	addPretty = false
+	addAction = "do something"
+	addVerify = "check something"
+	addResult = "report something"
 
 	// Test add with description
 	err := runAdd(nil, []string{"Task with description"})
@@ -96,6 +102,9 @@ func TestAddCommandWithParent(t *testing.T) {
 	addDescription = ""
 	addParent = ""
 	addPretty = false
+	addAction = "do something"
+	addVerify = "check something"
+	addResult = "report something"
 
 	err := runAdd(nil, []string{"Parent Task"})
 	require.NoError(t, err)
@@ -141,6 +150,9 @@ func TestAddCommandNonExistentParent(t *testing.T) {
 	addParent = "zzzz"
 	addDescription = ""
 	addPretty = false
+	addAction = "do something"
+	addVerify = "check something"
+	addResult = "report something"
 
 	// Test add should fail
 	err := runAdd(nil, []string{"Test Task"})
@@ -164,6 +176,9 @@ func TestAddCommandNotInProject(t *testing.T) {
 	addDescription = ""
 	addParent = ""
 	addPretty = false
+	addAction = "do something"
+	addVerify = "check something"
+	addResult = "report something"
 
 	// Test add should fail
 	err = runAdd(nil, []string{"Test Task"})
@@ -177,6 +192,9 @@ func TestAddCommandPrettyOutput(t *testing.T) {
 	addDescription = ""
 	addParent = ""
 	addPretty = true
+	addAction = "do something"
+	addVerify = "check something"
+	addResult = "report something"
 
 	err := runAdd(nil, []string{"Test Task"})
 	require.NoError(t, err)
@@ -204,6 +222,9 @@ func TestAddCommandToDoneParent(t *testing.T) {
 	addDescription = ""
 	addParent = parent.ID
 	addPretty = false
+	addAction = "do something"
+	addVerify = "check something"
+	addResult = "report something"
 
 	err = runAdd(nil, []string{"Child Task"})
 	assert.Error(t, err)
@@ -218,9 +239,31 @@ func TestAddCommandInvalidParentID(t *testing.T) {
 	addParent = "invalid"
 	addDescription = ""
 	addPretty = false
+	addAction = "do something"
+	addVerify = "check something"
+	addResult = "report something"
 
 	// Test add should fail
 	err := runAdd(nil, []string{"Test Task"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid parent task ID")
+}
+
+func TestAddCommand_RequiresStructuredFlags(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	// Reset all flags
+	addDescription = ""
+	addParent = ""
+	addPretty = false
+	addAction = ""
+	addVerify = ""
+	addResult = ""
+
+	// Execute via cobra (not runAdd directly) to trigger required flag validation
+	rootCmd.SetArgs([]string{"add", "Test Task"})
+	err := rootCmd.Execute()
+	assert.Error(t, err)
+	// Cobra reports missing required flags
 }

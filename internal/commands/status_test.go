@@ -28,8 +28,9 @@ func TestStatusCommand(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(task))
 
-	// Reset flag
+	// Reset flags
 	statusPretty = false
+	statusOutcome = ""
 
 	// Test updating status
 	err = runStatus(nil, []string{task.ID, models.StatusInProgress})
@@ -60,8 +61,9 @@ func TestStatusCommand_InvalidStatus(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(task))
 
-	// Reset flag
+	// Reset flags
 	statusPretty = false
+	statusOutcome = ""
 
 	// Test invalid status
 	err = runStatus(nil, []string{task.ID, "invalid-status"})
@@ -73,8 +75,9 @@ func TestStatusCommand_TaskNotFound(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	// Reset flag
+	// Reset flags
 	statusPretty = false
+	statusOutcome = ""
 
 	// Test non-existent task
 	err := runStatus(nil, []string{"zzzz", models.StatusDone})
@@ -86,8 +89,9 @@ func TestStatusCommand_InvalidID(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	// Reset flag
+	// Reset flags
 	statusPretty = false
+	statusOutcome = ""
 
 	// Test invalid ID format
 	err := runStatus(nil, []string{"not-valid", models.StatusDone})
@@ -112,8 +116,9 @@ func TestStatusCommand_AllStatuses(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(task))
 
-	// Reset flag
+	// Reset flags
 	statusPretty = false
+	statusOutcome = ""
 
 	// Test each valid status
 	statuses := []string{models.StatusTodo, models.StatusInProgress, models.StatusDone}
@@ -158,8 +163,9 @@ func TestStatusCommand_CannotMarkDoneWithUndoneChildren(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(child))
 
-	// Reset flag
+	// Reset flags
 	statusPretty = false
+	statusOutcome = ""
 
 	// Try to mark parent as done - should fail
 	err = runStatus(nil, []string{parent.ID, models.StatusDone})
@@ -205,8 +211,9 @@ func TestStatusCommand_CannotStartBlockedTask(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(blocked))
 
-	// Reset flag
+	// Reset flags
 	statusPretty = false
+	statusOutcome = ""
 
 	// Try to start the blocked task - should fail
 	err = runStatus(nil, []string{blocked.ID, models.StatusInProgress})
@@ -251,8 +258,9 @@ func TestStatusCommand_CanStartAfterUnblock(t *testing.T) {
 	}
 	require.NoError(t, store.SaveTask(blocked))
 
-	// Reset flag
+	// Reset flags
 	statusPretty = false
+	statusOutcome = ""
 
 	// Mark blocker as done (auto-removes from BlockedBy lists)
 	err = runStatus(nil, []string{blocker.ID, models.StatusDone})
@@ -287,7 +295,99 @@ func TestStatusCommand_PrettyOutput(t *testing.T) {
 
 	// Set pretty flag
 	statusPretty = true
+	statusOutcome = ""
 
 	err = runStatus(nil, []string{task.ID, models.StatusInProgress})
 	require.NoError(t, err)
+}
+
+func TestStatusCommand_RequiresOutcomeForStructuredTask(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+	task := &models.Task{
+		ID:      "aaaa",
+		Name:    "Structured Task",
+		Status:  models.StatusTodo,
+		Action:  "do X",
+		Verify:  "check Y",
+		Result:  "report Z",
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(task))
+
+	statusPretty = false
+	statusOutcome = ""
+
+	// Try to mark done without outcome - should fail
+	err = runStatus(nil, []string{task.ID, models.StatusDone})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "requires --outcome")
+}
+
+func TestStatusCommand_AcceptsOutcomeForStructuredTask(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+	task := &models.Task{
+		ID:      "aaaa",
+		Name:    "Structured Task",
+		Status:  models.StatusTodo,
+		Action:  "do X",
+		Verify:  "check Y",
+		Result:  "report Z",
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(task))
+
+	statusPretty = false
+	statusOutcome = "done, Y confirmed"
+
+	err = runStatus(nil, []string{task.ID, models.StatusDone})
+	require.NoError(t, err)
+
+	updated, err := store.LoadTask(task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, models.StatusDone, updated.Status)
+	assert.Equal(t, "done, Y confirmed", updated.Outcome)
+}
+
+func TestStatusCommand_LegacyTaskDoneWithoutOutcome(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+	task := &models.Task{
+		ID:      "aaaa",
+		Name:    "Legacy Task",
+		Status:  models.StatusTodo,
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(task))
+
+	statusPretty = false
+	statusOutcome = ""
+
+	// Legacy task can be marked done without outcome
+	err = runStatus(nil, []string{task.ID, models.StatusDone})
+	require.NoError(t, err)
+
+	updated, err := store.LoadTask(task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, models.StatusDone, updated.Status)
+	assert.Empty(t, updated.Outcome)
 }

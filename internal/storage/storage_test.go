@@ -826,6 +826,41 @@ func TestGetChildrenEmpty(t *testing.T) {
 	assert.Len(t, children, 0)
 }
 
+func TestMigrateFromV3(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create .clipm directory manually with a v3 store
+	clipmPath := filepath.Join(tmpDir, ClipmDir)
+	require.NoError(t, os.Mkdir(clipmPath, 0755))
+
+	v3Data := []byte(`{"version":"3.0.0","tasks":[{"id":"aaaa","name":"Legacy Task","parent":null,"status":"todo","created":"2026-01-01T00:00:00Z","updated":"2026-01-01T00:00:00Z"}]}`)
+	tasksPath := filepath.Join(clipmPath, TasksFile)
+	require.NoError(t, os.WriteFile(tasksPath, v3Data, 0644))
+
+	store := NewStorageAt(tmpDir)
+
+	// Loading should trigger migration
+	tasks, err := store.LoadAll()
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+	assert.Equal(t, "Legacy Task", tasks[0].Name)
+	assert.Empty(t, tasks[0].Action)
+	assert.Empty(t, tasks[0].Verify)
+	assert.Empty(t, tasks[0].Result)
+
+	// Verify backup was created
+	backupPath := tasksPath + ".v3.bak"
+	_, err = os.Stat(backupPath)
+	require.NoError(t, err, "v3 backup file should exist")
+
+	// Verify version was bumped in the file
+	data, err := os.ReadFile(tasksPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"version": "4.0.0"`)
+}
+
 func TestGenerateTaskID(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "clipm-test-*")
 	require.NoError(t, err)

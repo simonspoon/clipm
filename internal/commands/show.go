@@ -131,6 +131,20 @@ func printTaskDetails(task *models.Task, blockers, blocks []blockerInfo) {
 		white.Printf("Description: %s\n", task.Description)
 	}
 
+	if task.Action != "" {
+		white.Printf("Action:      %s\n", task.Action)
+	}
+	if task.Verify != "" {
+		white.Printf("Verify:      %s\n", task.Verify)
+	}
+	if task.Result != "" {
+		white.Printf("Result:      %s\n", task.Result)
+	}
+	if task.Outcome != "" {
+		green := color.New(color.FgGreen)
+		green.Printf("Outcome:     %s\n", task.Outcome)
+	}
+
 	white.Printf("Status:      %s\n", task.Status)
 
 	if task.Parent != nil {

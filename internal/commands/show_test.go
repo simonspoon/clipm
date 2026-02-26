@@ -224,6 +224,38 @@ func TestShowCommand_BlocksReverseLookup(t *testing.T) {
 	assert.Contains(t, ids, "aaac")
 }
 
+func TestShowCommand_StructuredFields(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+	task := &models.Task{
+		ID:      "aaaa",
+		Name:    "Structured Task",
+		Status:  models.StatusDone,
+		Action:  "run migrations",
+		Verify:  "check table exists",
+		Result:  "migration output",
+		Outcome: "table created successfully",
+		Created: now,
+		Updated: now,
+	}
+	require.NoError(t, store.SaveTask(task))
+
+	// Test pretty output doesn't error
+	showPretty = true
+	err = runShow(nil, []string{task.ID})
+	require.NoError(t, err)
+
+	// Test JSON output doesn't error
+	showPretty = false
+	err = runShow(nil, []string{task.ID})
+	require.NoError(t, err)
+}
+
 func TestShowCommandNotInProject(t *testing.T) {
 	// Create temp directory without initializing
 	tmpDir, err := os.MkdirTemp("", "clipm-cmd-test-*")

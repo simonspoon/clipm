@@ -87,7 +87,7 @@ func (s *Storage) Init() error {
 
 	// Create empty task store
 	store := &TaskStore{
-		Version: "3.0.0",
+		Version: "4.0.0",
 		Tasks:   []models.Task{},
 	}
 	return s.saveStore(store)
@@ -480,7 +480,7 @@ func (s *Storage) loadStore() (*TaskStore, error) {
 	data, err := os.ReadFile(storePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &TaskStore{Version: "3.0.0", Tasks: []models.Task{}}, nil
+			return &TaskStore{Version: "4.0.0", Tasks: []models.Task{}}, nil
 		}
 		return nil, fmt.Errorf("failed to read tasks file: %w", err)
 	}
@@ -493,9 +493,14 @@ func (s *Storage) loadStore() (*TaskStore, error) {
 		return nil, fmt.Errorf("failed to parse tasks file: %w", err)
 	}
 
-	// If v2.0.0, migrate to v3.0.0
+	// If v2.0.0, migrate to v4.0.0 (skip v3)
 	if versionCheck.Version == "2.0.0" {
 		return s.migrateFromV2(data)
+	}
+
+	// If v3.0.0, migrate to v4.0.0
+	if versionCheck.Version == "3.0.0" {
+		return s.migrateFromV3(data)
 	}
 
 	var store TaskStore
@@ -571,7 +576,7 @@ func (s *Storage) migrateFromV2(data []byte) (*TaskStore, error) {
 	}
 
 	store := &TaskStore{
-		Version: "3.0.0",
+		Version: "4.0.0",
 		Tasks:   newTasks,
 	}
 
@@ -581,6 +586,32 @@ func (s *Storage) migrateFromV2(data []byte) (*TaskStore, error) {
 	}
 
 	return store, nil
+}
+
+// migrateFromV3 migrates from v3.0.0 to v4.0.0 (adds structured fields, which default to "")
+func (s *Storage) migrateFromV3(data []byte) (*TaskStore, error) {
+	// Create backup before migration
+	storePath := filepath.Join(s.rootDir, ClipmDir, TasksFile)
+	backupPath := storePath + ".v3.bak"
+	if err := os.WriteFile(backupPath, data, 0644); err != nil {
+		return nil, fmt.Errorf("failed to create backup: %w", err)
+	}
+
+	// Unmarshal existing data — missing fields default to ""
+	var store TaskStore
+	if err := json.Unmarshal(data, &store); err != nil {
+		return nil, fmt.Errorf("failed to parse tasks file: %w", err)
+	}
+
+	// Bump version
+	store.Version = "4.0.0"
+
+	// Save migrated store
+	if err := s.saveStore(&store); err != nil {
+		return nil, fmt.Errorf("failed to save migrated store: %w", err)
+	}
+
+	return &store, nil
 }
 
 // saveStore writes the tasks.json file

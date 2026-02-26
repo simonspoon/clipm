@@ -93,7 +93,7 @@ type TaskStore struct {
 }
 ```
 
-The current version string is `"3.0.0"`. The file is written with `json.MarshalIndent` using two-space indentation (see `storage.go:590`).
+The current version string is `"4.0.0"`. The file is written with `json.MarshalIndent` using two-space indentation (see `storage.go:590`).
 
 ### Storage struct
 
@@ -151,7 +151,7 @@ func (s *Storage) SaveTask(task *models.Task) error
 
 **DeleteTask** and **DeleteTasks** rebuild the slice excluding the target ID(s) and write back (see `storage.go:145`, `storage.go:170`).
 
-**loadStore** / **saveStore** are unexported helpers that handle JSON marshaling and file I/O. `loadStore` also handles migration from the v2.0.0 format (int64 IDs) to v3.0.0 (4-character alpha IDs) on first read, writing a `.bak` backup before migrating (see `storage.go:477`, `storage.go:587`).
+**loadStore** / **saveStore** are unexported helpers that handle JSON marshaling and file I/O. `loadStore` also handles schema migration on first read: v2.0.0 stores (int64 IDs) are migrated directly to v4.0.0; v3.0.0 stores are migrated to v4.0.0 (new structured fields default to `""`). A backup is written before each migration (see `storage.go:477`, `storage.go:587`).
 
 ### Task ID Generation
 

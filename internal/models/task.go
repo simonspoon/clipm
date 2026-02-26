@@ -16,6 +16,10 @@ type Task struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
+	Action      string    `json:"action,omitempty"`
+	Verify      string    `json:"verify,omitempty"`
+	Result      string    `json:"result,omitempty"`
+	Outcome     string    `json:"outcome,omitempty"`
 	Parent      *string   `json:"parent"`
 	Status      string    `json:"status"`
 	BlockedBy   []string  `json:"blockedBy,omitempty"`
@@ -31,6 +35,12 @@ const (
 	StatusInProgress = "in-progress"
 	StatusDone       = "done"
 )
+
+// HasStructuredFields returns true when all three required structured fields are non-empty.
+// Used to distinguish legacy (pre-v4) tasks from structured tasks.
+func (t *Task) HasStructuredFields() bool {
+	return t.Action != "" && t.Verify != "" && t.Result != ""
+}
 
 // IsValidStatus checks if a status value is valid
 func IsValidStatus(status string) bool {

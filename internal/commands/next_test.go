@@ -173,6 +173,35 @@ func TestNextCommand_ReportsBlockedCount(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestNextCommand_PrettyStructuredFields(t *testing.T) {
+	_, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	store, err := storage.NewStorage()
+	require.NoError(t, err)
+
+	now := time.Now()
+	task := &models.Task{
+		ID:          "aaaa",
+		Name:        "Structured Task",
+		Description: "A description",
+		Action:      "run migrations",
+		Verify:      "check table exists",
+		Result:      "migration output",
+		Status:      models.StatusTodo,
+		Created:     now,
+		Updated:     now,
+	}
+	require.NoError(t, store.SaveTask(task))
+
+	nextPretty = true
+	nextUnclaimed = false
+
+	// Should display without error
+	err = runNext(nil, nil)
+	require.NoError(t, err)
+}
+
 func TestNextCommand_Pretty(t *testing.T) {
 	_, cleanup := setupTestEnv(t)
 	defer cleanup()

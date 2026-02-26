@@ -52,6 +52,15 @@ func runNext(cmd *cobra.Command, args []string) error {
 			if result.Task.Description != "" {
 				fmt.Printf("Description: %s\n", result.Task.Description)
 			}
+			if result.Task.Action != "" {
+				fmt.Printf("Action:      %s\n", result.Task.Action)
+			}
+			if result.Task.Verify != "" {
+				fmt.Printf("Verify:      %s\n", result.Task.Verify)
+			}
+			if result.Task.Result != "" {
+				fmt.Printf("Result:      %s\n", result.Task.Result)
+			}
 		} else {
 			out, _ := json.Marshal(result)
 			fmt.Println(string(out))

@@ -14,6 +14,9 @@ var (
 	addDescription string
 	addParent      string
 	addPretty      bool
+	addAction      string
+	addVerify      string
+	addResult      string
 )
 
 var addCmd = &cobra.Command{
@@ -28,6 +31,12 @@ func init() {
 	addCmd.Flags().StringVarP(&addDescription, "description", "d", "", "Task description")
 	addCmd.Flags().StringVar(&addParent, "parent", "", "Parent task ID")
 	addCmd.Flags().BoolVar(&addPretty, "pretty", false, "Pretty print output")
+	addCmd.Flags().StringVar(&addAction, "action", "", "What concrete work to perform")
+	addCmd.Flags().StringVar(&addVerify, "verify", "", "How to confirm the action succeeded")
+	addCmd.Flags().StringVar(&addResult, "result", "", "Template for what to report back")
+	addCmd.MarkFlagRequired("action")
+	addCmd.MarkFlagRequired("verify")
+	addCmd.MarkFlagRequired("result")
 }
 
 func runAdd(cmd *cobra.Command, args []string) error {
@@ -69,6 +78,9 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		ID:          taskID,
 		Name:        name,
 		Description: addDescription,
+		Action:      addAction,
+		Verify:      addVerify,
+		Result:      addResult,
 		Parent:      parent,
 		Status:      models.StatusTodo,
 		Created:     now,

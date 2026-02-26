@@ -26,8 +26,8 @@ clipm status abcd in-progress
 clipm note abcd "Started implementation"
 clipm note abcd "Found edge case, handling it"
 
-# Complete
-clipm status abcd done
+# Complete (--outcome required for structured tasks)
+clipm status abcd done --outcome "Implemented feature X; all tests pass"
 ```
 
 The `next` command returns one of two shapes:
@@ -98,9 +98,18 @@ clipm next
 # Agent decomposes it into subtasks
 clipm claim abcd agent-1
 clipm status abcd in-progress
-clipm add "Design auth schema" --parent abcd
-clipm add "Implement login endpoint" --parent abcd
-clipm add "Implement logout endpoint" --parent abcd
+clipm add "Design auth schema" --parent abcd \
+  --action "Design the database schema for auth" \
+  --verify "Schema reviewed and approved" \
+  --result "Schema file path and summary of design decisions"
+clipm add "Implement login endpoint" --parent abcd \
+  --action "Implement POST /login in auth package" \
+  --verify "go test ./internal/auth/... passes" \
+  --result "Handler file path and passing test output"
+clipm add "Implement logout endpoint" --parent abcd \
+  --action "Implement POST /logout in auth package" \
+  --verify "go test ./internal/auth/... passes" \
+  --result "Handler file path and passing test output"
 
 # Next call now returns the first subtask
 clipm next
@@ -172,3 +181,4 @@ clipm watch --show-all
 - Deleting a task orphans its children (sets their parent to nil)
 - `clipm prune` removes all `done` tasks
 - Notes are append-only
+- Structured tasks (those created with `--action`, `--verify`, `--result`) require `--outcome` when marking `done`

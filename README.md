@@ -24,9 +24,15 @@ go build -o clipm ./cmd/clipm
 # Initialize clipm in your project
 clipm init
 
-# Add tasks
-clipm add "Implement user authentication"
-clipm add "Add login endpoint" --parent <task-id> -d "REST endpoint for user login"
+# Add tasks (--action, --verify, --result are required)
+clipm add "Implement user authentication" \
+  --action "Build JWT login and token refresh" \
+  --verify "go test ./... passes" \
+  --result "List of endpoints added and test output"
+clipm add "Add login endpoint" --parent <task-id> \
+  --action "Implement POST /login handler" \
+  --verify "Integration test passes" \
+  --result "Handler file path and test results"
 
 # View tasks
 clipm list                    # JSON output
@@ -35,7 +41,7 @@ clipm tree                    # Hierarchical view (pretty by default)
 
 # Update task status
 clipm status <task-id> in-progress
-clipm status <task-id> done
+clipm status <task-id> done --outcome "Implemented; all tests pass"
 
 # Get next task (depth-first traversal)
 clipm next
@@ -49,11 +55,11 @@ clipm watch --pretty
 | Command | Description |
 |---------|-------------|
 | `init` | Initialize clipm in the current directory |
-| `add <name>` | Add a new task (`--parent`, `--description`/`-d`) |
+| `add <name>` | Add a new task (`--action`, `--verify`, `--result` required; `--parent`, `--description`/`-d`) |
 | `list` | List all tasks |
 | `tree` | Display tasks in a tree structure (`--show-all`) |
 | `show <id>` | Show details for a specific task |
-| `status <id> <status>` | Update task status (`todo`, `in-progress`, `done`) |
+| `status <id> <status>` | Update task status (`todo`, `in-progress`, `done`); `--outcome` required for structured tasks when marking `done` |
 | `next` | Get the next task to work on |
 | `parent <id> <parent-id>` | Set a task's parent |
 | `unparent <id>` | Remove a task's parent |
@@ -106,8 +112,8 @@ clipm status abcd in-progress
 clipm note abcd "Started implementation"
 clipm note abcd "Found edge case, handling it"
 
-# Agent completes work, marks done
-clipm status abcd done
+# Agent completes work, marks done (--outcome required for structured tasks)
+clipm status abcd done --outcome "Implemented feature X; all tests pass"
 ```
 
 ### Multi-Agent Coordination

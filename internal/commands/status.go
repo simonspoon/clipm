@@ -12,6 +12,7 @@ import (
 )
 
 var statusPretty bool
+var statusOutcome string
 
 var statusCmd = &cobra.Command{
 	Use:   "status <id> <status>",
@@ -23,6 +24,7 @@ var statusCmd = &cobra.Command{
 
 func init() {
 	statusCmd.Flags().BoolVar(&statusPretty, "pretty", false, "Pretty print output")
+	statusCmd.Flags().StringVar(&statusOutcome, "outcome", "", "Actual result when marking done")
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
@@ -58,6 +60,18 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Validate transition constraints
 	if err := validateStatusTransition(store, task, newStatus); err != nil {
 		return err
+	}
+
+	// Require --outcome for structured tasks being marked done
+	if newStatus == models.StatusDone && task.HasStructuredFields() {
+		if statusOutcome == "" {
+			return fmt.Errorf("structured task %s requires --outcome when marking done", task.ID)
+		}
+	}
+
+	// Set outcome when marking done
+	if newStatus == models.StatusDone && statusOutcome != "" {
+		task.Outcome = statusOutcome
 	}
 
 	// Update status and timestamp
